@@ -497,7 +497,7 @@ describe('Main Functions', () => {
       await downloadItems(boothRequest, pageCache, mockProducts)
 
       // キャッシュロードは呼ばれないはず
-       
+
       expect(pageCache.loadOrFetch).not.toHaveBeenCalled()
       expect(mockFs.writeFileSync).not.toHaveBeenCalled()
     })
@@ -540,7 +540,7 @@ describe('Main Functions', () => {
       await downloadItems(boothRequest, pageCache, mockProducts)
 
       // 1つだけダウンロード
-       
+
       expect(pageCache.loadOrFetch).toHaveBeenCalledTimes(1)
       expect(mockFs.writeFileSync).toHaveBeenCalledTimes(1)
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(

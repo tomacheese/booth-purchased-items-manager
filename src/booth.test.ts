@@ -149,6 +149,12 @@ describe('BoothRequest', () => {
     )
   })
 
+  test('should handle axios error in getItem', async () => {
+    const boothRequest = new BoothRequest()
+    mockAxios.get.mockRejectedValueOnce(new Error('network error'))
+    await expect(boothRequest.getItem('99999')).rejects.toThrow('network error')
+  })
+
   test('should return true if login check is successful', async () => {
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: '' })
     const result = await boothRequest.checkLogin()
@@ -283,6 +289,17 @@ describe('BoothParser', () => {
     const result = boothParser.retrieveBoothIdsFromHtml(description)
 
     expect(result).toEqual(['12345', '67890'])
+  })
+
+  test('should retrieve Booth IDs with duplicates and newlines', () => {
+    const description = {
+      html: '<p>関連商品: <a href="https://booth.pm/ja/items/12345">商品1</a>\n<a href="https://booth.pm/ja/items/12345">商品1</a>\n<a href="https://booth.pm/ja/items/67890">商品2</a></p>',
+      text: '関連商品: 商品1 https://booth.pm/ja/items/12345\n商品1 https://booth.pm/ja/items/12345\n商品2 https://booth.pm/ja/items/67890',
+    }
+    const boothParser = new BoothParser()
+    const result = boothParser.retrieveBoothIdsFromHtml(description)
+    // 重複を許容する仕様なので両方含まれる
+    expect(result).toEqual(['12345', '12345', '67890'])
   })
 
   test('should handle invalid HTML in parseLibraryPage', () => {

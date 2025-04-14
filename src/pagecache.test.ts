@@ -135,6 +135,20 @@ describe('PageCache', () => {
     expect(result).toEqual(['file1', 'file2'])
   })
 
+  test('should ignore subdirectories and non-html files in list', () => {
+    mockFs.existsSync.mockReturnValue(true)
+    mockFs.readdirSync.mockReturnValue([
+      { name: 'file1.html', isFile: () => true },
+      { name: 'file2.html', isFile: () => true },
+      { name: 'file3.txt', isFile: () => true },
+      { name: 'subdir', isFile: () => false },
+      { name: '.DS_Store', isFile: () => true },
+    ] as unknown as fs.Dirent[])
+
+    const result = pageCache.list('testType')
+    expect(result).toEqual(['file1', 'file2'])
+  })
+
   test('should return empty array if cache directory does not exist', () => {
     mockFs.existsSync.mockReturnValue(false)
 
@@ -168,6 +182,49 @@ describe('PageCache', () => {
     expect(metrics.miss).toBe(1)
     expect(metrics.expired).toBe(1)
     expect(metrics.saved).toBe(1)
+  })
+
+  test('should accumulate metrics correctly over multiple operations', () => {
+    mockFs.existsSync.mockReturnValue(true)
+    mockFs.readFileSync.mockReturnValue('data')
+    pageCache.load('testType', 'testId', null) // hit
+    pageCache.load('testType', 'testId', null) // hit
+
+    mockFs.existsSync.mockReturnValue(false)
+    pageCache.load('testType', 'testId2', null) // miss
+    pageCache.load('testType', 'testId3', null) // miss
+
+    mockFs.existsSync.mockReturnValue(true)
+    const pastDate = new Date()
+    pastDate.setDate(pastDate.getDate() - 10)
+    mockFs.readFileSync.mockReturnValue(pastDate.toISOString())
+    pageCache.load('testType', 'testId4', 5) // expired
+    pageCache.load('testType', 'testId5', 5) // expired
+
+    mockFs.existsSync.mockReturnValue(true)
+    pageCache.save('testType', 'testId6', 'new data') // saved
+    pageCache.save('testType', 'testId7', 'new data') // saved
+
+    const metrics = pageCache.getMetrics()
+    expect(metrics.hit).toBe(2)
+    expect(metrics.miss).toBe(2)
+    expect(metrics.expired).toBe(2)
+    expect(metrics.saved).toBe(2)
+  })
+
+  test('should ignore hidden files and only return html files in list', () => {
+    mockFs.existsSync.mockReturnValue(true)
+    mockFs.readdirSync.mockReturnValue([
+      { name: 'file1.html', isFile: () => true },
+      { name: '.hidden.html', isFile: () => true },
+      { name: 'file2.html', isFile: () => true },
+      { name: '.DS_Store', isFile: () => true },
+      { name: 'subdir', isFile: () => false },
+      { name: 'file3.txt', isFile: () => true },
+    ] as unknown as fs.Dirent[])
+
+    const result = pageCache.list('testType')
+    expect(result).toEqual(['file1', '.hidden', 'file2'])
   })
 
   test('should test with real cache data if available', () => {
