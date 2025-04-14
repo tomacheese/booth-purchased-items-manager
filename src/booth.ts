@@ -87,7 +87,6 @@ export class BoothRequest {
 
     await page.close()
 
-    console.log('a')
     const cookies = await browser.cookies()
     fs.writeFileSync(cookiePath, JSON.stringify(cookies))
 
@@ -96,13 +95,18 @@ export class BoothRequest {
   }
 
   async checkLogin() {
-    const url = 'https://accounts.booth.pm/settings'
-    const response = await axios.get<string>(url, {
-      headers: {
-        Cookie: this.getCookieString(),
-      },
-    })
-    return response.status === 200
+    try {
+      const url = 'https://accounts.booth.pm/settings'
+      const response = await axios.get<string>(url, {
+        headers: {
+          Cookie: this.getCookieString(),
+        },
+      })
+      return response.status === 200
+    } catch (error) {
+      console.error('Error in checkLogin:', error)
+      return false
+    }
   }
 
   async getLibraryPage(pageNumber: number) {
@@ -192,12 +196,6 @@ export class BoothParser {
         }
       }
 
-      console.log('productName', productName)
-      console.log('productURL', productURL)
-      console.log('thumbnailURL', thumbnailURL)
-      console.log('shopName', shopName)
-      console.log('shopURL', shopURL)
-
       if (productName && productURL && thumbnailURL && shopName && shopURL) {
         // https://booth.pm/ja/items/5438106 -> 5438106
         const productId = /items\/(\d+)/.exec(productURL)?.[1]
@@ -207,7 +205,6 @@ export class BoothParser {
           )
           continue
         }
-        console.log(`Product: ${productName} (${productURL}) [${productId}]`)
         products.push({
           productId,
           productName,
@@ -228,7 +225,6 @@ export class BoothParser {
   }
 
   parseProductPage(html: string) {
-    // TODO: 商品ページから、説明文以外の情報も取得するようにする
     const root = parseHtml(html)
     const descriptionElements = root.querySelectorAll(
       'section.main-info-column div.description'

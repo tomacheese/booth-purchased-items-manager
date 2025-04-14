@@ -8,6 +8,12 @@ export async function fetchPurchased(
   boothParser: BoothParser,
   pageCache: PageCache
 ) {
+  const isLoggedIn = await boothRequest.checkLogin()
+
+  if (!isLoggedIn) {
+    await boothRequest.login()
+  }
+
   // Library
   const libraryProducts = []
   let pageNumber = 1
@@ -78,10 +84,7 @@ export async function extractIdLinking(
     to: string
   }[] = []
   for (const product of products) {
-    const { productId, productName } = product
-    console.log(
-      `Extracting ID linking for product ${productName} [${productId}]`
-    )
+    const { productId } = product
     const html = await pageCache.loadOrFetch(
       'product',
       productId,
@@ -287,6 +290,8 @@ async function main() {
   console.log('Done!')
 }
 
-;(async () => {
-  await main()
-})()
+if (process.env.NODE_ENV !== 'test') {
+  ;(async () => {
+    await main()
+  })()
+}

@@ -43,9 +43,7 @@ export class Environment {
     let path = env.env[key].value
     const isFile = env.env[key].isFile
     if (isFile && filename) {
-      throw new Error(
-        `Filename is not allowed for ${key}, it is a file path`
-      )
+      throw new Error(`Filename is not allowed for ${key}, it is a file path`)
     }
 
     this.makeDir(path, isFile)
@@ -58,7 +56,9 @@ export class Environment {
   }
 
   private static makeDir(path: string, isFile: boolean): void {
-    const parentDir = isFile ? path.slice(0, Math.max(0, path.lastIndexOf('/'))) : path
+    const parentDir = isFile
+      ? path.slice(0, Math.max(0, path.lastIndexOf('/')))
+      : path
     if (fs.existsSync(parentDir)) {
       return
     }
