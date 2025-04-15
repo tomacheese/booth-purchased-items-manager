@@ -5,7 +5,7 @@ import { BoothRequest, BoothParser, BoothProduct } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
 import fs from 'node:fs'
-import axios from 'axios' // AxiosHeaders を削除
+import axios from 'axios'
 import { jest } from '@jest/globals'
 import path from 'node:path'
 import os from 'node:os'
@@ -112,6 +112,7 @@ describe('Main Functions', () => {
   })
 
   describe('fetchPurchased', () => {
+    // ユーザーがログイン済みの場合の購入済み商品取得テスト
     test('should fetch purchased items when user is logged in', async () => {
       mockAxios.get.mockReset()
       // libraryページ1
@@ -164,6 +165,7 @@ describe('Main Functions', () => {
       expect(pageCache.loadOrFetch).toHaveBeenCalledTimes(3)
     })
 
+    // ログインしていない場合にログイン処理が呼ばれるかのテスト
     test('should attempt to login if user is not logged in', async () => {
       mockAxios.get.mockReset()
       // libraryページ（正常）
@@ -184,6 +186,7 @@ describe('Main Functions', () => {
       expect(loginMock).toHaveBeenCalled()
     })
 
+    // ライブラリ・ギフトページに複数商品がある場合のテスト
     test('should handle library and gift pages with multiple items', async () => {
       mockAxios.get.mockReset()
       // libraryページ1
@@ -261,6 +264,7 @@ describe('Main Functions', () => {
   })
 
   describe('extractIdLinking', () => {
+    // 商品説明からIDリンクを抽出するテスト
     test('should extract ID linking from product descriptions', async () => {
       const mockProducts: BoothProduct[] = [
         {
@@ -306,6 +310,7 @@ describe('Main Functions', () => {
       })
     })
 
+    // 複数商品・複数リンクのIDリンク抽出テスト
     test('should handle multiple products and multiple links', async () => {
       const mockProducts: BoothProduct[] = [
         {
@@ -376,6 +381,7 @@ describe('Main Functions', () => {
       )
     })
 
+    // 複数回同じIDが出現した場合の重複排除テスト
     test('should not duplicate linking relations', async () => {
       const mockProducts: BoothProduct[] = [
         {
@@ -429,6 +435,7 @@ describe('Main Functions', () => {
   })
 
   describe('downloadItems', () => {
+    // 商品のダウンロード処理のテスト
     test('should download items for products', async () => {
       // Mock product with items
       const mockProducts: BoothProduct[] = [
@@ -471,6 +478,7 @@ describe('Main Functions', () => {
       )
     })
 
+    // 既存ファイルがある場合にダウンロードをスキップするテスト
     test('should skip download if item already exists', async () => {
       // Mock product with items
       const mockProducts: BoothProduct[] = [
@@ -497,11 +505,11 @@ describe('Main Functions', () => {
       await downloadItems(boothRequest, pageCache, mockProducts)
 
       // キャッシュロードは呼ばれないはず
-
       expect(pageCache.loadOrFetch).not.toHaveBeenCalled()
       expect(mockFs.writeFileSync).not.toHaveBeenCalled()
     })
 
+    // 複数アイテムがある場合のダウンロードテスト
     test('should handle multiple items', async () => {
       // Mock product with multiple items
       const mockProducts: BoothProduct[] = [
@@ -551,29 +559,26 @@ describe('Main Functions', () => {
     })
   })
 
+  // 実際のキャッシュデータでパースが正常に動作するかのテスト
   test('should test with real cache data if available', () => {
     // モックをリセットして実際のファイルシステムにアクセスするための準備
     jest.resetAllMocks()
 
-    try {
-      // 実データへのアクセスをテスト
-      const realCachePath = 'data/cache/library/1.html'
-      if (fs.existsSync(realCachePath)) {
-        const htmlContent = fs.readFileSync(realCachePath, 'utf8')
-        const realParser = new BoothParser()
-        const products = realParser.parseLibraryPage(htmlContent)
+    // 実データへのアクセスをテスト
+    const realCachePath = 'data/cache/library/1.html'
+    if (fs.existsSync(realCachePath)) {
+      const htmlContent = fs.readFileSync(realCachePath, 'utf8')
+      const realParser = new BoothParser()
+      const products = realParser.parseLibraryPage(htmlContent)
 
-        // パースが正常に動作することを確認
-        expect(Array.isArray(products)).toBe(true)
+      // パースが正常に動作することを確認
+      expect(Array.isArray(products)).toBe(true)
 
-        // 最低限のプロパティが存在するか確認
-        if (products.length > 0) {
-          expect(products[0]).toHaveProperty('productId')
-          expect(products[0]).toHaveProperty('productName')
-        }
+      // 最低限のプロパティが存在するか確認
+      if (products.length > 0) {
+        expect(products[0]).toHaveProperty('productId')
+        expect(products[0]).toHaveProperty('productName')
       }
-    } catch {
-      // No action needed
     }
   })
 })

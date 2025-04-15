@@ -16,6 +16,7 @@ describe('Environment', () => {
     jest.resetAllMocks()
   })
 
+  // ファイルパス取得の正常系テスト
   test('should get file path correctly', () => {
     mockFs.existsSync.mockReturnValue(true)
 
@@ -23,6 +24,7 @@ describe('Environment', () => {
     expect(path).toBe('data/products.json')
   })
 
+  // ディレクトリパス取得の正常系テスト
   test('should get directory path correctly', () => {
     mockFs.existsSync.mockReturnValue(true)
 
@@ -30,6 +32,7 @@ describe('Environment', () => {
     expect(path).toBe('data/cache/test')
   })
 
+  // ファイルパスにファイル名を指定した場合のエラー検証テスト
   test('should throw error if filename provided for file path', () => {
     expect(() => {
       // @ts-expect-error テスト時に意図的に型エラーを発生させる
@@ -37,6 +40,7 @@ describe('Environment', () => {
     }).toThrow('Filename is not allowed for PRODUCTS_PATH, it is a file path')
   })
 
+  // ディレクトリが存在しない場合に作成されるかのテスト
   test('should create directory if it does not exist', () => {
     mockFs.existsSync.mockReturnValue(false)
 
@@ -44,6 +48,7 @@ describe('Environment', () => {
     expect(mockFs.mkdirSync).toHaveBeenCalled()
   })
 
+  // 存在しない環境変数キー指定時のエラー検証テスト
   test('should throw error for invalid environment variable', () => {
     expect(() => {
       // @ts-expect-error テスト用に存在しないキーを指定
@@ -51,6 +56,7 @@ describe('Environment', () => {
     }).toThrow('Environment variable INVALID_KEY is not set')
   })
 
+  // ディレクトリパスの末尾にスラッシュが付与されるかのテスト
   test('should add trailing slash to directory path if missing', () => {
     mockFs.existsSync.mockReturnValue(true)
 

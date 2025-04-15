@@ -20,6 +20,7 @@ describe('PageCache', () => {
     jest.resetAllMocks()
   })
 
+  // キャッシュからデータを読み込む処理のテスト
   test('should load data from cache', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readFileSync.mockReturnValue('{}')
@@ -31,6 +32,7 @@ describe('PageCache', () => {
     expect(result).toEqual({})
   })
 
+  // キャッシュへデータを保存する処理のテスト
   test('should save data to cache', () => {
     mockFs.existsSync.mockReturnValue(false)
 
@@ -38,18 +40,21 @@ describe('PageCache', () => {
     expect(mockFs.writeFileSync).toHaveBeenCalledTimes(2) // ファイルとsavedAtの2回
   })
 
+  // アイテムの存在チェック（存在する場合）のテスト
   test('should check item existence', () => {
     mockFs.existsSync.mockReturnValue(true)
     const result = pageCache.checkItemExistence('testType', 'testId', null)
     expect(result).toBe(1)
   })
 
+  // アイテムの存在チェック（存在しない場合）のテスト
   test('should return 0 if item does not exist', () => {
     mockFs.existsSync.mockReturnValue(false)
     const result = pageCache.checkItemExistence('testType', 'testId', null)
     expect(result).toBe(0)
   })
 
+  // アイテムの有効期限切れ判定のテスト
   test('should return -1 if item is expired', () => {
     mockFs.existsSync.mockReturnValue(true)
 
@@ -62,6 +67,7 @@ describe('PageCache', () => {
     expect(result).toBe(-1)
   })
 
+  // 存在しないアイテムをロードした場合のテスト
   test('should return null when loading non-existent item', () => {
     mockFs.existsSync.mockReturnValue(false)
 
@@ -69,6 +75,7 @@ describe('PageCache', () => {
     expect(result).toBeNull()
   })
 
+  // 有効期限切れアイテムをロードした場合の削除処理テスト
   test('should delete expired item when loading', () => {
     mockFs.existsSync.mockReturnValue(true)
 
@@ -83,6 +90,7 @@ describe('PageCache', () => {
     expect(mockFs.unlinkSync).toHaveBeenCalledTimes(2) // ファイルとsavedAtの両方を削除
   })
 
+  // nullやundefinedデータを保存しないことのテスト
   test('should not save null or undefined data', () => {
     pageCache.save('testType', 'testId', null)
     // eslint-disable-next-line unicorn/no-useless-undefined
@@ -91,6 +99,7 @@ describe('PageCache', () => {
     expect(mockFs.writeFileSync).not.toHaveBeenCalled()
   })
 
+  // キャッシュミス時にfetchFuncが呼ばれるかのテスト
   test('should load or fetch data when cache miss', async () => {
     mockFs.existsSync.mockReturnValue(false)
     const fetchFunc = jest.fn().mockResolvedValue('new data')
@@ -106,6 +115,7 @@ describe('PageCache', () => {
     expect(result).toBe('new data')
   })
 
+  // キャッシュヒット時にfetchFuncが呼ばれないことのテスト
   test('should not fetch when cache hit', async () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readFileSync.mockReturnValue('cached data')
@@ -122,6 +132,7 @@ describe('PageCache', () => {
     expect(result).toBe('cached data')
   })
 
+  // キャッシュファイル一覧取得のテスト
   test('should list cache files', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readdirSync.mockReturnValue([
@@ -135,6 +146,7 @@ describe('PageCache', () => {
     expect(result).toEqual(['file1', 'file2'])
   })
 
+  // サブディレクトリやhtml以外のファイルを除外するテスト
   test('should ignore subdirectories and non-html files in list', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readdirSync.mockReturnValue([
@@ -149,6 +161,7 @@ describe('PageCache', () => {
     expect(result).toEqual(['file1', 'file2'])
   })
 
+  // キャッシュディレクトリが存在しない場合のテスト
   test('should return empty array if cache directory does not exist', () => {
     mockFs.existsSync.mockReturnValue(false)
 
@@ -156,6 +169,7 @@ describe('PageCache', () => {
     expect(result).toEqual([])
   })
 
+  // メトリクスのカウントが正しいかのテスト
   test('should track metrics correctly', () => {
     // ヒットケース
     mockFs.existsSync.mockReturnValue(true)
@@ -184,6 +198,7 @@ describe('PageCache', () => {
     expect(metrics.saved).toBe(1)
   })
 
+  // 複数回の操作でメトリクスが正しく累積されるかのテスト
   test('should accumulate metrics correctly over multiple operations', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readFileSync.mockReturnValue('data')
@@ -212,6 +227,7 @@ describe('PageCache', () => {
     expect(metrics.saved).toBe(2)
   })
 
+  // 隠しファイルやhtml以外のファイルを除外するテスト
   test('should ignore hidden files and only return html files in list', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readdirSync.mockReturnValue([
@@ -227,6 +243,7 @@ describe('PageCache', () => {
     expect(result).toEqual(['file1', '.hidden', 'file2'])
   })
 
+  // 実際のキャッシュデータでロードが正常に動作するかのテスト
   test('should test with real cache data if available', () => {
     const originalExistsSync = fs.existsSync
 
@@ -235,21 +252,17 @@ describe('PageCache', () => {
 
     // 実データへのアクセスをテスト（エラーは発生しないこと）
     const realCachePath = 'data/cache/item/'
-    try {
-      if (originalExistsSync(realCachePath)) {
-        // ディレクトリが存在する場合の処理
-        const sampleCache = new PageCache()
-        const cacheFiles = sampleCache.list('item')
+    if (originalExistsSync(realCachePath)) {
+      // ディレクトリが存在する場合の処理
+      const sampleCache = new PageCache()
+      const cacheFiles = sampleCache.list('item')
 
-        // ファイルが存在すれば検証、なければスキップ
-        if (cacheFiles.length > 0) {
-          const firstItem = cacheFiles[0]
-          const data = sampleCache.load('item', firstItem, null)
-          expect(data).not.toBeNull()
-        }
+      // ファイルが存在すれば検証、なければスキップ
+      if (cacheFiles.length > 0) {
+        const firstItem = cacheFiles[0]
+        const data = sampleCache.load('item', firstItem, null)
+        expect(data).not.toBeNull()
       }
-    } catch {
-      // エラーが発生した場合はテストをスキップ
     }
 
     // モックを元に戻す

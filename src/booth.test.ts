@@ -34,7 +34,7 @@ jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
   writeFileSync: jest.fn(),
-  mkdirSync: jest.fn(), // モックを追加
+  mkdirSync: jest.fn(),
 }))
 
 const mockAxios = axios as jest.Mocked<typeof axios>
@@ -53,24 +53,28 @@ describe('BoothRequest', () => {
     jest.restoreAllMocks()
   })
 
+  // ログイン状態の確認が正しく行われるかをテスト
   test('should check login status', async () => {
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: '' })
     const isLoggedIn = await boothRequest.checkLogin()
     expect(isLoggedIn).toBe(true)
   })
 
+  // ログイン処理が正しく動作するかをテスト
   test('should handle login process', async () => {
     jest.spyOn(boothRequest, 'checkLogin').mockResolvedValueOnce(false)
     await boothRequest.login()
     expect(mockPuppeteer.launch).toHaveBeenCalled()
   })
 
+  // 既にログイン済みの場合にログイン処理をスキップするかをテスト
   test('should skip login if already logged in', async () => {
     jest.spyOn(boothRequest, 'checkLogin').mockResolvedValueOnce(true)
     await boothRequest.login()
     expect(mockPuppeteer.launch).not.toHaveBeenCalled()
   })
 
+  // クッキーがファイルから正しく読み込まれるかをテスト
   test('should load cookies from file if exists', () => {
     mockFs.existsSync.mockReturnValueOnce(true).mockReturnValueOnce(true)
     mockFs.readFileSync.mockReturnValueOnce(
@@ -102,6 +106,7 @@ describe('BoothRequest', () => {
     expect(request.cookies).toHaveLength(2)
   })
 
+  // ライブラリページが正しく取得できるかをテスト
   test('should fetch library page', async () => {
     const mockHtml = '<html><body>Library Page</body></html>'
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
@@ -113,6 +118,7 @@ describe('BoothRequest', () => {
     )
   })
 
+  // ギフトページが正しく取得できるかをテスト
   test('should fetch library gifts page', async () => {
     const mockHtml = '<html><body>Gifts Page</body></html>'
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
@@ -124,6 +130,7 @@ describe('BoothRequest', () => {
     )
   })
 
+  // 商品ページが正しく取得できるかをテスト
   test('should fetch product page', async () => {
     const mockHtml = '<html><body>Product Page</body></html>'
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
@@ -135,6 +142,7 @@ describe('BoothRequest', () => {
     )
   })
 
+  // アイテムが正しく取得できるかをテスト
   test('should fetch item', async () => {
     const mockData = Buffer.from('mock item data')
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockData })
@@ -149,24 +157,28 @@ describe('BoothRequest', () => {
     )
   })
 
+  // getItemでエラーが発生した場合の挙動をテスト
   test('should handle axios error in getItem', async () => {
     const boothRequest = new BoothRequest()
     mockAxios.get.mockRejectedValueOnce(new Error('network error'))
     await expect(boothRequest.getItem('99999')).rejects.toThrow('network error')
   })
 
+  // ログインチェックが成功した場合にtrueを返すかをテスト
   test('should return true if login check is successful', async () => {
     mockAxios.get.mockResolvedValueOnce({ status: 200, data: '' })
     const result = await boothRequest.checkLogin()
     expect(result).toBe(true)
   })
 
+  // ログインチェックが失敗した場合にfalseを返すかをテスト
   test('should return false if login check fails', async () => {
     mockAxios.get.mockResolvedValueOnce({ status: 401, data: '' })
     const result = await boothRequest.checkLogin()
     expect(result).toBe(false)
   })
 
+  // クッキー文字列が正しく生成されるかをテスト
   test('should generate cookie string correctly', () => {
     // @ts-expect-error プライベートプロパティにアクセス
     boothRequest.cookies = [
@@ -204,12 +216,14 @@ describe('BoothParser', () => {
     boothParser = new BoothParser()
   })
 
+  // 空のライブラリページをパースしたときの挙動をテスト
   test('should parse empty library page', () => {
     const mockHtml = '<html><body></body></html>'
     const result = boothParser.parseLibraryPage(mockHtml)
     expect(result).toEqual([])
   })
 
+  // 商品情報を含むライブラリページのパースをテスト
   test('should parse library page with products', () => {
     const mockHtml = `
       <html>
@@ -255,6 +269,7 @@ describe('BoothParser', () => {
     })
   })
 
+  // 商品ページのパース処理をテスト
   test('should parse product page', () => {
     const mockHtml = `
       <html>
@@ -266,7 +281,7 @@ describe('BoothParser', () => {
             </div>
           </section>
           <section class="shop__text">
-            <p>ショップからのお知らせ</p>
+            <p>商品説明2</p>
           </section>
         </body>
       </html>
@@ -277,9 +292,10 @@ describe('BoothParser', () => {
     expect(result).toHaveLength(2)
     expect(result[0].text).toContain('商品説明1')
     expect(result[0].text).toContain('リンク: 関連商品')
-    expect(result[1].text).toBe('ショップからのお知らせ')
+    expect(result[1].text).toBe('商品説明2')
   })
 
+  // HTML説明文からBooth IDを抽出できるかをテスト
   test('should retrieve Booth IDs from HTML description', () => {
     const description = {
       html: '<p>関連商品: <a href="https://booth.pm/ja/items/12345">商品1</a>, <a href="https://example.booth.pm/items/67890">商品2</a></p>',
@@ -291,6 +307,7 @@ describe('BoothParser', () => {
     expect(result).toEqual(['12345', '67890'])
   })
 
+  // 重複や改行を含むHTML説明文からBooth IDを抽出できるかをテスト
   test('should retrieve Booth IDs with duplicates and newlines', () => {
     const description = {
       html: '<p>関連商品: <a href="https://booth.pm/ja/items/12345">商品1</a>\n<a href="https://booth.pm/ja/items/12345">商品1</a>\n<a href="https://booth.pm/ja/items/67890">商品2</a></p>',
@@ -302,12 +319,14 @@ describe('BoothParser', () => {
     expect(result).toEqual(['12345', '12345', '67890'])
   })
 
+  // 不正なHTMLをパースしたときの挙動をテスト
   test('should handle invalid HTML in parseLibraryPage', () => {
     const mockHtml = '<invalid>HTML'
     const result = boothParser.parseLibraryPage(mockHtml)
     expect(result).toEqual([])
   })
 
+  // 実際のキャッシュデータでパースが正常に動作するかをテスト
   test('should test with real cache data if available', () => {
     const originalExistsSync = fs.existsSync
     const originalReadFileSync = fs.readFileSync
@@ -315,32 +334,30 @@ describe('BoothParser', () => {
     // モックをリセットして実際のファイルシステムにアクセス
     jest.resetAllMocks()
 
-    // 実データへのアクセスをテスト（エラーは発生しないこと）
-    try {
-      const realCachePath = 'data/cache/library/1.html'
-      if (originalExistsSync(realCachePath)) {
-        const htmlContent = originalReadFileSync(realCachePath, 'utf8')
-        const result = boothParser.parseLibraryPage(htmlContent)
-        // 少なくともパースエラーが起きないことを確認
-        expect(typeof result).toBe('object')
-      }
+    // 実データへのアクセスをテスト（エラーは発生しないこと
+    const realCachePath = 'data/cache/library/1.html'
+    if (originalExistsSync(realCachePath)) {
+      const htmlContent = originalReadFileSync(realCachePath, 'utf8')
+      const result = boothParser.parseLibraryPage(htmlContent)
+      // 少なくともパースエラーが起きないことを確認
+      expect(typeof result).toBe('object')
+    }
 
-      const realProductPath = 'data/cache/product/'
-      if (originalExistsSync(realProductPath)) {
-        const files = fs.readdirSync(realProductPath)
-        if (files.length > 0) {
-          for (const file of files
-            .filter((f) => f.endsWith('.html'))
-            .slice(0, 1)) {
-            const htmlContent = originalReadFileSync(
-              `${realProductPath}${file}`,
-              'utf8'
-            )
-            const result = boothParser.parseProductPage(htmlContent)
-            expect(Array.isArray(result)).toBe(true)
-          }
+    const realProductPath = 'data/cache/product/'
+    if (originalExistsSync(realProductPath)) {
+      const files = fs.readdirSync(realProductPath)
+      if (files.length > 0) {
+        for (const file of files
+          .filter((f) => f.endsWith('.html'))
+          .slice(0, 1)) {
+          const htmlContent = originalReadFileSync(
+            `${realProductPath}${file}`,
+            'utf8'
+          )
+          const result = boothParser.parseProductPage(htmlContent)
+          expect(Array.isArray(result)).toBe(true)
         }
       }
-    } catch {}
+    }
   })
 })
