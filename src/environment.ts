@@ -115,7 +115,7 @@ export class Environment {
     if (!isFile && !isDirectory) {
       throw new Error(`Should be a file or directory path for ${key}`)
     }
-    if (!path){
+    if (!path) {
       throw new Error(`Environment variable ${key} is not set`)
     }
 

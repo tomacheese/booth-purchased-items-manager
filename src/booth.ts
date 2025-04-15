@@ -61,7 +61,7 @@ export class BoothRequest {
         height: 1080,
       },
     }
-    
+
     const chromiumPath = Environment.getValue('CHROMIUM_PATH')
     if (chromiumPath) {
       puppeteerOptions.executablePath = chromiumPath
