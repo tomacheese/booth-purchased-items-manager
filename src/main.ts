@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { BoothParser, BoothProduct, BoothRequest } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
+import { Logger } from '@book000/node-utils'
 
 /**
  * 購入済み商品（ライブラリ・ギフト）を全て取得する
@@ -153,13 +154,14 @@ export async function downloadItems(
   pageCache: PageCache,
   products: BoothProduct[]
 ) {
+  const logger = Logger.configure('downloadItems')
   for (const product of products) {
     const { productId, productName, items } = product
-    console.log(
+    logger.info(
       `Downloading items for product ${productName} [${productId}] (${items.length} items)`
     )
     for (const item of items) {
-      console.log(
+      logger.info(
         `Downloading item ${item.itemName} [${item.itemId}] (${item.downloadURL})`
       )
       const fileExtension = item.itemName.split('.').pop()
@@ -168,7 +170,7 @@ export async function downloadItems(
         `${productId}/${item.itemId}.${fileExtension}`
       )
       if (fs.existsSync(itemPath)) {
-        console.log(`Item ${itemPath} already exists, skipping...`)
+        logger.info(`Item ${itemPath} already exists, skipping...`)
         continue
       }
 
@@ -192,7 +194,7 @@ export async function downloadItems(
 
       // save data
       fs.writeFileSync(itemPath, Buffer.from(data), 'binary')
-      console.log(`Item ${itemPath} downloaded`)
+      logger.info(`Item ${itemPath} downloaded`)
     }
   }
 }
@@ -202,6 +204,7 @@ export async function downloadItems(
  * @returns なし
  */
 async function main() {
+  const logger = Logger.configure('main')
   const boothRequest = new BoothRequest()
   await boothRequest.login()
 
@@ -265,7 +268,7 @@ async function main() {
     return []
   })
 
-  console.log(
+  logger.info(
     `New products: ${newProducts.length}, New items: ${newItems.length}`
   )
 
@@ -281,9 +284,9 @@ async function main() {
   const newItemPath = `${newItemDir}${datetime}.json`
 
   if (newProducts.length > 0) {
-    console.log('New products:')
+    logger.info('New products:')
     for (const product of newProducts) {
-      console.log(`- ${product.productName} [${product.productId}]`)
+      logger.info(`- ${product.productName} [${product.productId}]`)
     }
 
     // Save new products
@@ -293,9 +296,9 @@ async function main() {
     fs.writeFileSync(newProductPath, JSON.stringify(newProducts, null, 2))
   }
   if (newItems.length > 0) {
-    console.log('New items:')
+    logger.info('New items:')
     for (const item of newItems) {
-      console.log(`- ${item.itemName} [${item.itemId}]`)
+      logger.info(`- ${item.itemName} [${item.itemId}]`)
     }
 
     // Save new items
@@ -307,13 +310,13 @@ async function main() {
 
   // Show metrics
   const metrics = pageCache.getMetrics()
-  console.log('PageCache Metrics:')
-  console.log(`  Hit: ${metrics.hit}`)
-  console.log(`  Miss: ${metrics.miss}`)
-  console.log(`  Expired: ${metrics.expired}`)
-  console.log(`  Saved: ${metrics.saved}`)
+  logger.info('PageCache Metrics:')
+  logger.info(`  Hit: ${metrics.hit}`)
+  logger.info(`  Miss: ${metrics.miss}`)
+  logger.info(`  Expired: ${metrics.expired}`)
+  logger.info(`  Saved: ${metrics.saved}`)
 
-  console.log('Done!')
+  logger.info('Done!')
 }
 
 if (process.env.NODE_ENV !== 'test') {

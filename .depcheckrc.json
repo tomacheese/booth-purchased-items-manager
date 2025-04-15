@@ -6,6 +6,7 @@
     "eslint-plugin-import",
     "eslint-plugin-n",
     "eslint-plugin-promise",
-    "typescript-json-schema"
+    "typescript-json-schema",
+    "@types/jest"
   ]
 }

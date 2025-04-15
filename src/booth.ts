@@ -120,6 +120,8 @@ export class BoothRequest {
         headers: {
           Cookie: this.getCookieString(),
         },
+        maxRedirects: 0,
+        validateStatus: () => true,
       })
       return response.status === 200
     } catch (error) {
