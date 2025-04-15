@@ -14,6 +14,12 @@ export class PageCache {
     saved: 0,
   }
 
+  /**
+   * キャッシュにデータを保存する
+   * @param type 種別
+   * @param id ID
+   * @param data 保存データ
+   */
   save(type: string, id: string, data: any) {
     if (!data) {
       return
@@ -25,6 +31,13 @@ export class PageCache {
     this.metrics.saved++
   }
 
+  /**
+   * キャッシュアイテムの存在・有効期限をチェックする
+   * @param type 種別
+   * @param id ID
+   * @param expireDays 有効日数 or null
+   * @returns 1=有効, 0=存在しない, -1=期限切れ
+   */
   checkItemExistence(type: string, id: string, expireDays: number | null) {
     const path = this.getPath(type, id)
     const savedAtPath = `${path}.savedAt`
@@ -46,6 +59,13 @@ export class PageCache {
     return 1
   }
 
+  /**
+   * キャッシュからデータを読み込む（期限切れ・未存在時はnull）
+   * @param type 種別
+   * @param id ID
+   * @param expireDays 有効日数 or null
+   * @returns データ or null
+   */
   load(type: string, id: string, expireDays: number | null) {
     const existResult = this.checkItemExistence(type, id, expireDays)
     if (existResult === 0) {
@@ -63,6 +83,15 @@ export class PageCache {
     return fs.readFileSync(path)
   }
 
+  /**
+   * キャッシュがあればそれを返し、なければfetchFuncで取得・保存して返す
+   * @template T
+   * @param type 種別
+   * @param id ID
+   * @param expireDays 有効日数 or null
+   * @param fetchFunc データ取得関数
+   * @returns データ
+   */
   async loadOrFetch<T>(
     type: string,
     id: string,
@@ -78,6 +107,11 @@ export class PageCache {
     return newData
   }
 
+  /**
+   * 指定種別のキャッシュファイル一覧（IDリスト）を取得する
+   * @param type 種別
+   * @returns IDリスト
+   */
   list(type: string) {
     const path = this.getPath(type, '')
     const dir = path.slice(0, Math.max(0, path.lastIndexOf('/')))
@@ -90,10 +124,19 @@ export class PageCache {
       .map((file) => file.name.replace('.html', ''))
   }
 
+  /**
+   * キャッシュ操作のメトリクス（ヒット数等）を取得する
+   * @returns メトリクスオブジェクト
+   */
   getMetrics() {
     return this.metrics
   }
 
+  /**
+   * キャッシュ保存日時を記録する（内部利用）
+   * @param type 種別
+   * @param id ID
+   */
   private setSavedAt(type: string, id: string) {
     const path = this.getPath(type, id)
     const savedAtPath = `${path}.savedAt`
@@ -101,10 +144,20 @@ export class PageCache {
     fs.writeFileSync(savedAtPath, savedAt.toISOString(), 'utf8')
   }
 
+  /**
+   * キャッシュファイルのパスを生成する（内部利用）
+   * @param type 種別
+   * @param id ID
+   * @returns パス
+   */
   private getPath(type: string, id: string) {
     return Environment.getPath('CACHE_DIR', `${type}/${id}.html`)
   }
 
+  /**
+   * キャッシュディレクトリを作成する（内部利用）
+   * @param type 種別
+   */
   private makeDir(type: string) {
     const path = this.getPath(type, '')
     const dir = path.slice(0, Math.max(0, path.lastIndexOf('/')))

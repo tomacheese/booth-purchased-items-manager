@@ -1,4 +1,4 @@
-import puppeteer, { Cookie } from 'puppeteer-core'
+import puppeteer, { Cookie, LaunchOptions } from 'puppeteer-core'
 import fs from 'node:fs'
 import axios from 'axios'
 import { parse as parseHtml } from 'node-html-parser'
@@ -23,6 +23,10 @@ export interface BoothProduct {
 export class BoothRequest {
   private cookiesPath = Environment.getPath('COOKIE_PATH')
   private cookies: Cookie[] = []
+
+  /**
+   * BoothRequestのインスタンスを生成し、クッキーが存在すれば読み込む
+   */
   constructor() {
     if (fs.existsSync(this.cookiesPath)) {
       const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf8'))
@@ -30,6 +34,10 @@ export class BoothRequest {
     }
   }
 
+  /**
+   * ユーザーがログインしていなければPuppeteerでログイン処理を行い、クッキーを保存する
+   * @returns ログイン処理のPromise
+   */
   async login() {
     if (await this.checkLogin()) {
       return
@@ -45,19 +53,26 @@ export class BoothRequest {
       '--lang=ja',
       '--window-size=1920,1080',
     ]
-    const browser = await puppeteer.launch({
-      headless: false,
-      // executablePath: '/usr/bin/chromium-browser',
-      channel: 'chrome',
+    const puppeteerOptions: LaunchOptions = {
+      headless: Environment.getBoolean('IS_HEADLESS'),
       args: puppeteerArguments,
       defaultViewport: {
         width: 1920,
         height: 1080,
       },
-    })
+    }
+    
+    const chromiumPath = Environment.getValue('CHROMIUM_PATH')
+    if (chromiumPath) {
+      puppeteerOptions.executablePath = chromiumPath
+    } else {
+      puppeteerOptions.channel = 'chrome'
+    }
+    const browser = await puppeteer.launch(puppeteerOptions)
 
+    const isIgnoreCookie = Environment.getBoolean('IS_IGNORE_COOKIE')
     const cookiePath = Environment.getPath('COOKIE_PATH')
-    if (process.env.IS_IGNORE_COOKIE !== 'true' && fs.existsSync(cookiePath)) {
+    if (!isIgnoreCookie && fs.existsSync(cookiePath)) {
       const cookies = JSON.parse(fs.readFileSync(cookiePath, 'utf8'))
       for (const cookie of cookies) {
         await browser.setCookie(cookie)
@@ -94,6 +109,10 @@ export class BoothRequest {
     await browser.close()
   }
 
+  /**
+   * Boothにログインしているかどうかを判定する
+   * @returns ログイン済みならtrue、未ログインならfalse
+   */
   async checkLogin() {
     try {
       const url = 'https://accounts.booth.pm/settings'
@@ -109,6 +128,11 @@ export class BoothRequest {
     }
   }
 
+  /**
+   * 指定ページ番号のライブラリページHTMLを取得する
+   * @param pageNumber ページ番号
+   * @returns ライブラリページのレスポンス
+   */
   async getLibraryPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library?page=${pageNumber}`
     const response = await axios.get<string>(url, {
@@ -119,6 +143,11 @@ export class BoothRequest {
     return response
   }
 
+  /**
+   * 指定ページ番号のギフトページHTMLを取得する
+   * @param pageNumber ページ番号
+   * @returns ギフトページのレスポンス
+   */
   async getLibraryGiftsPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library/gifts?page=${pageNumber}`
     const response = await axios.get<string>(url, {
@@ -129,6 +158,11 @@ export class BoothRequest {
     return response
   }
 
+  /**
+   * 指定商品IDの商品ページHTMLを取得する
+   * @param productId 商品ID
+   * @returns 商品ページのレスポンス
+   */
   async getProductPage(productId: string) {
     const url = `https://booth.pm/ja/items/${productId}`
     const response = await axios.get<string>(url, {
@@ -139,6 +173,11 @@ export class BoothRequest {
     return response
   }
 
+  /**
+   * 指定アイテムIDのダウンロードデータを取得する
+   * @param itemId アイテムID
+   * @returns アイテムデータのレスポンス
+   */
   async getItem(itemId: string) {
     const url = `https://booth.pm/downloadables/${itemId}`
     const response = await axios.get<ArrayBuffer>(url, {
@@ -150,6 +189,10 @@ export class BoothRequest {
     return response
   }
 
+  /**
+   * 保持しているクッキー情報をCookieヘッダー用文字列に変換する（内部利用）
+   * @returns Cookieヘッダー用文字列
+   */
   private getCookieString() {
     return this.cookies
       .map((cookie) => `${cookie.name}=${cookie.value}`)
@@ -158,6 +201,11 @@ export class BoothRequest {
 }
 
 export class BoothParser {
+  /**
+   * ライブラリ/ギフトページのHTMLから商品情報リストを抽出する
+   * @param html ページHTML文字列
+   * @returns 商品情報配列
+   */
   parseLibraryPage(html: string): BoothProduct[] {
     const products = []
     const root = parseHtml(html)
@@ -224,6 +272,11 @@ export class BoothParser {
     return products
   }
 
+  /**
+   * 商品ページのHTMLから説明文情報（html/text）配列を抽出する
+   * @param html ページHTML文字列
+   * @returns 説明文情報配列
+   */
   parseProductPage(html: string) {
     const root = parseHtml(html)
     const descriptionElements = root.querySelectorAll(
@@ -243,6 +296,11 @@ export class BoothParser {
     return descriptions
   }
 
+  /**
+   * 商品説明からBooth商品IDを抽出する
+   * @param description html/textを持つオブジェクト
+   * @returns 抽出したBooth商品ID配列
+   */
   retrieveBoothIdsFromHtml(description: { html: string; text: string }) {
     const { text } = description
     const boothIds = []

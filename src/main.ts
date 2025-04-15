@@ -3,6 +3,13 @@ import { BoothParser, BoothProduct, BoothRequest } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
 
+/**
+ * 購入済み商品（ライブラリ・ギフト）を全て取得する
+ * @param boothRequest BoothRequestインスタンス
+ * @param boothParser BoothParserインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @returns 商品情報配列（type: 'library'|'gift'を含む）
+ */
 export async function fetchPurchased(
   boothRequest: BoothRequest,
   boothParser: BoothParser,
@@ -73,6 +80,14 @@ export async function fetchPurchased(
   return products
 }
 
+/**
+ * 各商品の説明文から他Booth商品へのリンク関係（IDペア）を抽出する
+ * @param boothRequest BoothRequestインスタンス
+ * @param boothParser BoothParserインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @param products 商品リスト
+ * @returns IDリンク配列
+ */
 export async function extractIdLinking(
   boothRequest: BoothRequest,
   boothParser: BoothParser,
@@ -126,6 +141,13 @@ export async function extractIdLinking(
   return idLinking
 }
 
+/**
+ * 商品リストの各アイテムをダウンロードし保存する
+ * @param boothRequest BoothRequestインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @param products 商品リスト
+ * @returns なし
+ */
 export async function downloadItems(
   boothRequest: BoothRequest,
   pageCache: PageCache,
@@ -175,6 +197,10 @@ export async function downloadItems(
   }
 }
 
+/**
+ * メイン処理。ログイン・商品取得・IDリンク抽出・ダウンロード・新規検出・保存・メトリクス表示
+ * @returns なし
+ */
 async function main() {
   const boothRequest = new BoothRequest()
   await boothRequest.login()
