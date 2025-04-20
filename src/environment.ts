@@ -3,7 +3,7 @@ import fs from 'node:fs'
 export class Environment {
   private env = {
     IS_HEADLESS: {
-      value: process.env.IS_HEADLESS ?? 'true',
+      value: process.env.IS_HEADLESS ?? 'false',
       type: 'boolean',
     },
     IS_IGNORE_COOKIE: {

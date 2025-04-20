@@ -65,7 +65,7 @@ describe('Environment', () => {
 
   // getValue の正常系テスト
   test('should get value correctly for valid key', () => {
-    expect(Environment.getValue('IS_HEADLESS')).toBe('true')
+    expect(Environment.getValue('IS_HEADLESS')).toBe('false')
     expect(Environment.getValue('PRODUCTS_PATH')).toBe('data/products.json')
   })
 
@@ -79,7 +79,7 @@ describe('Environment', () => {
 
   // getBoolean の正常系テスト
   test('should get boolean value correctly', () => {
-    expect(Environment.getBoolean('IS_HEADLESS')).toBe(true)
+    expect(Environment.getBoolean('IS_HEADLESS')).toBe(false)
     expect(Environment.getBoolean('IS_IGNORE_COOKIE')).toBe(false)
   })
 
