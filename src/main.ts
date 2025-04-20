@@ -176,7 +176,7 @@ export async function downloadItems(
 
       const data = await pageCache.loadOrFetch(
         'item',
-        productId,
+        item.itemId,
         1,
         async () => {
           const response = await boothRequest.getItem(item.itemId)
