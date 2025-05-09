@@ -11,7 +11,7 @@
     "@book000/node-utils": "1.15.15",
     "@jest/globals": "29.7.0",
     "@types/jest": "29.5.14",
-    "@types/node": "22.15.13",
+    "@types/node": "22.15.14",
     "axios": "1.9.0",
     "eslint": "9.26.0",
     "eslint-config-standard": "17.1.0",
