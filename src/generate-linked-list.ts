@@ -1,14 +1,18 @@
 import { BoothProduct } from './booth'
 import fs from 'node:fs'
+import { Environment } from './environment'
 
 export function generateLinkedList() {
+  const productPath = Environment.getPath('PRODUCTS_PATH')
+  const idLinkingPath = Environment.getPath('ID_MAPPING_PATH')
+  const linkedItemsPath = Environment.getPath('LINKED_ITEMS_PATH')
   const products: BoothProduct[] = JSON.parse(
-    fs.readFileSync('data/products.json', 'utf8')
+    fs.readFileSync(productPath, 'utf8')
   )
   const idLinking: {
     from: string
     to: string
-  }[] = JSON.parse(fs.readFileSync('data/id_linking.json', 'utf8'))
+  }[] = JSON.parse(fs.readFileSync(idLinkingPath, 'utf8'))
 
   const results = []
   for (const product of products) {
@@ -51,5 +55,5 @@ export function generateLinkedList() {
     )
     .join('\n\n')
 
-  fs.writeFileSync('data/linked_items.md', markdown)
+  fs.writeFileSync(linkedItemsPath, markdown)
 }

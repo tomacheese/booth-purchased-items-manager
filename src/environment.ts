@@ -22,6 +22,10 @@ export class Environment {
       value: process.env.ID_MAPPING_PATH ?? 'data/id_linking.json',
       type: 'file',
     },
+    LINKED_ITEMS_PATH: {
+      value: process.env.LINKED_ITEMS_PATH ?? 'data/linked_items.md',
+      type: 'file',
+    },
     COOKIE_PATH: {
       value: process.env.COOKIE_PATH ?? 'data/cookies.json',
       type: 'file',
