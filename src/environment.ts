@@ -42,6 +42,10 @@ export class Environment {
       value: process.env.NEW_PRODUCTS_DIR ?? 'data/new/',
       type: 'directory',
     },
+    DISCORD_WEBHOOK_URL: {
+      value: process.env.DISCORD_WEBHOOK_URL,
+      type: 'text',
+    },
   } as const
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

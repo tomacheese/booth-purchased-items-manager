@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { BoothParser, BoothProduct, BoothRequest } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
-import { Logger } from '@book000/node-utils'
+import { Discord, Logger } from '@book000/node-utils'
 import { generateLinkedList } from './generate-linked-list'
 
 /**
@@ -308,6 +308,58 @@ async function main() {
       fs.mkdirSync(newItemDir, { recursive: true })
     }
     fs.writeFileSync(newItemPath, JSON.stringify(newItems, null, 2))
+  }
+
+  // Notify to Discord new products and items
+  const discordWebhookUrl = Environment.getPath('DISCORD_WEBHOOK_URL')
+  if (discordWebhookUrl) {
+    const discord = new Discord({
+      webhookUrl: discordWebhookUrl,
+    })
+
+    const newProductEmbeds = {
+      title: 'New Products',
+      fields: newProducts.map((product) => ({
+        name: product.productName,
+        value: `https://booth.pm/items/${product.productId}`,
+        inline: false,
+      })),
+    }
+
+    const newItemProductIds = [
+      ...new Set(newItems.map((item) => item.product.productId)),
+    ]
+    const newItemEmbeds = {
+      title: 'New Items',
+      fields: newItemProductIds.map((productId) => {
+        const product = newItems.find(
+          (item) => item.product.productId === productId
+        )?.product
+        const newProductItems = newItems.filter(
+          (item) => item.product.productId === productId
+        )
+        return {
+          name: `${product?.productName} - https://booth.pm/items/${productId}`,
+          value: newProductItems
+            .map((item) => `- ${item.itemName} [${item.itemId}]`)
+            .join('\n'),
+          inline: false,
+        }
+      }),
+    }
+
+    const embeds = []
+    if (newProducts.length > 0) {
+      embeds.push(newProductEmbeds)
+    }
+    if (newItems.length > 0) {
+      embeds.push(newItemEmbeds)
+    }
+    if (newProducts.length > 0 || newItems.length > 0) {
+      await discord.sendMessage({
+        embeds,
+      })
+    }
   }
 
   // Show metrics
