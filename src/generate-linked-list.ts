@@ -53,4 +53,3 @@ export function generateLinkedList() {
 
   fs.writeFileSync('data/linked_items.md', markdown)
 }
-
