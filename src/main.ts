@@ -311,7 +311,7 @@ async function main() {
   }
 
   // Notify to Discord new products and items
-  const discordWebhookUrl = Environment.getPath('DISCORD_WEBHOOK_URL')
+  const discordWebhookUrl = Environment.getValue('DISCORD_WEBHOOK_URL')
   if (discordWebhookUrl) {
     const discord = new Discord({
       webhookUrl: discordWebhookUrl,
