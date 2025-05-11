@@ -3,6 +3,7 @@ import { BoothParser, BoothProduct, BoothRequest } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
 import { Logger } from '@book000/node-utils'
+import { generateLinkedList } from './generate-linked-list'
 
 /**
  * 購入済み商品（ライブラリ・ギフト）を全て取得する
@@ -108,7 +109,8 @@ export async function extractIdLinking(
       async () => {
         const response = await boothRequest.getProductPage(productId)
         if (response.status !== 200) {
-          throw new Error(`Failed to fetch product page: ${response.status}`)
+          // throw new Error(`Failed to fetch product page: ${response.status}`)
+          return ''
         }
         return response.data
       }
@@ -315,6 +317,9 @@ async function main() {
   logger.info(`  Miss: ${metrics.miss}`)
   logger.info(`  Expired: ${metrics.expired}`)
   logger.info(`  Saved: ${metrics.saved}`)
+
+  logger.info('Generating linked list...')
+  generateLinkedList()
 
   logger.info('Done!')
 }

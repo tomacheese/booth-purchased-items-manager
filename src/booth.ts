@@ -171,6 +171,7 @@ export class BoothRequest {
       headers: {
         Cookie: this.getCookieString(),
       },
+      validateStatus: () => true,
     })
     return response
   }
