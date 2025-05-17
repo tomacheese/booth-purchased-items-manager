@@ -320,7 +320,7 @@ async function main() {
     const newProductEmbeds = {
       title: 'New Products',
       fields: newProducts.map((product) => ({
-        name: product.productName,
+        name: `\`${product.productName}\``,
         value: `https://booth.pm/items/${product.productId}`,
         inline: false,
       })),
@@ -339,10 +339,13 @@ async function main() {
           (item) => item.product.productId === productId
         )
         return {
-          name: `${product?.productName} - https://booth.pm/items/${productId}`,
-          value: newProductItems
-            .map((item) => `- ${item.itemName} [${item.itemId}]`)
-            .join('\n'),
+          name: `\`${product?.productName}\``,
+          value:
+            `https://booth.pm/items/${productId}` +
+            '\n\n' +
+            newProductItems
+              .map((item) => `- ${item.itemName} [${item.itemId}]`)
+              .join('\n'),
           inline: false,
         }
       }),
