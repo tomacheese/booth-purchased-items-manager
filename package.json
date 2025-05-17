@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "@book000/eslint-config": "1.8.75",
-    "@book000/node-utils": "1.15.33",
+    "@book000/node-utils": "1.15.34",
     "@jest/globals": "29.7.0",
     "@types/jest": "29.5.14",
     "@types/node": "22.15.15",
