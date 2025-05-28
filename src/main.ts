@@ -321,7 +321,7 @@ async function main() {
       title: 'New Products',
       fields: newProducts.map((product) => ({
         name: `\`${product.productName}\``,
-        value: `https://booth.pm/items/${product.productId}`,
+        value: `https://booth.pm/ja/items/${product.productId}`,
         inline: false,
       })),
     }
@@ -341,7 +341,7 @@ async function main() {
         return {
           name: `\`${product?.productName}\``,
           value:
-            `https://booth.pm/items/${productId}` +
+            `https://booth.pm/ja/items/${productId}` +
             '\n\n' +
             newProductItems
               .map((item) => `- ${item.itemName} [${item.itemId}]`)
