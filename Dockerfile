@@ -9,7 +9,7 @@ USER root
 # hadolint ignore=DL3018,DL3016
 RUN apk upgrade --no-cache --available && \
   apk update && \
-  apk add --update --no-cache tzdata x11vnc && \
+  apk add --update --no-cache tzdata x11vnc zip unzip && \
   cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
   echo "Asia/Tokyo" > /etc/timezone && \
   apk del tzdata && \
@@ -32,6 +32,7 @@ RUN chmod +x ./entrypoint.sh
 
 ENV TZ=Asia/Tokyo
 ENV NODE_ENV=production
+ENV VPM_ENABLED=true
 ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 ENV PRODUCTS_PATH=/data/products.json
 ENV ID_MAPPING_PATH=/data/id_linking.json
@@ -41,6 +42,7 @@ ENV CACHE_DIR=/data/cache/
 ENV DOWNLOADED_ITEMS_DIR=/data/items/
 ENV NEW_DIR=/data/new/
 ENV LOG_DIR=/data/logs/
+ENV VPM_REPOSITORY_DIR=/data/vpm-repository/
 
 ENTRYPOINT ["tini", "--"]
 CMD ["/app/entrypoint.sh"]

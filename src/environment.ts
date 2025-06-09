@@ -46,6 +46,18 @@ export class Environment {
       value: process.env.DISCORD_WEBHOOK_URL,
       type: 'text',
     },
+    VPM_REPOSITORY_DIR: {
+      value: process.env.VPM_REPOSITORY_DIR ?? 'data/vpm-repository/',
+      type: 'directory',
+    },
+    VPM_ENABLED: {
+      value: process.env.VPM_ENABLED ?? 'true',
+      type: 'boolean',
+    },
+    VPM_BASE_URL: {
+      value: process.env.VPM_BASE_URL ?? '',
+      type: 'string',
+    },
   } as const
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

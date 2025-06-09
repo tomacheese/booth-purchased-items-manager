@@ -4,6 +4,7 @@ import { PageCache } from './pagecache'
 import { Environment } from './environment'
 import { Discord, Logger } from '@book000/node-utils'
 import { generateLinkedList } from './generate-linked-list'
+import { VpmConverter } from './vpm-converter'
 
 /**
  * 購入済み商品（ライブラリ・ギフト）を全て取得する
@@ -239,6 +240,10 @@ async function main() {
   // アイテム情報をもとに、アイテムをダウンロードし保存
   await downloadItems(boothRequest, pageCache, products)
 
+  // UnityPackageアイテムをVPM形式に変換
+  const vpmConverter = new VpmConverter()
+  vpmConverter.convertBoothItemsToVpm(products)
+
   // 新しい商品・アイテムを一覧化
   const newProducts = products.filter((product) => {
     return !prevProducts.some(
@@ -375,6 +380,20 @@ async function main() {
 
   logger.info('Generating linked list...')
   generateLinkedList()
+
+  // VPMリポジトリの統計情報を表示
+  if (Environment.getBoolean('VPM_ENABLED')) {
+    const vpmStats = vpmConverter.getRepositoryStats()
+    logger.info('VPM Repository Stats:')
+    logger.info(`  Total packages: ${vpmStats.totalPackages}`)
+    logger.info(`  Total versions: ${vpmStats.totalVersions}`)
+    if (vpmStats.packages.length > 0) {
+      logger.info('  Packages:')
+      for (const pkg of vpmStats.packages) {
+        logger.info(`    - ${pkg.name} (${pkg.versions.length} versions)`)
+      }
+    }
+  }
 
   logger.info('Done!')
 }
