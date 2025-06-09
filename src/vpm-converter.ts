@@ -144,7 +144,7 @@ export class VpmConverter {
     try {
       // ファイル識別子を抽出
       const fileIdentifier = this.extractFileIdentifier(item.itemName)
-      
+
       // UnityPackageの基本情報を取得（ファイル識別子付き）
       const packageName = this.generatePackageName(product, fileIdentifier)
 
@@ -163,7 +163,7 @@ export class VpmConverter {
         packagePath,
         packageName,
         existingRepository,
-        item.itemName  // 元のアイテム名も渡す
+        item.itemName // 元のアイテム名も渡す
       )
 
       // 既存バージョンをチェック
@@ -221,12 +221,15 @@ export class VpmConverter {
   /**
    * VPMパッケージ名を生成する
    */
-  private generatePackageName(product: BoothProduct, fileIdentifier?: string): string {
+  private generatePackageName(
+    product: BoothProduct,
+    fileIdentifier?: string
+  ): string {
     // Extract shop name from URL like https://xxx.booth.pm/
-    const shopNameMatch = product.shopURL.match(/https:\/\/([^.]+)\.booth\.pm/)
+    const shopNameMatch = /https:\/\/([^.]+)\.booth\.pm/.exec(product.shopURL)
     const shopName = shopNameMatch ? shopNameMatch[1] : 'unknown'
     const basePackageName = `com.booth.${shopName}.${product.productId}`
-    
+
     if (fileIdentifier) {
       return `${basePackageName}.${fileIdentifier}`
     }
@@ -238,20 +241,20 @@ export class VpmConverter {
    */
   private extractFileIdentifier(filename: string): string {
     const nameWithoutExt = path.basename(filename, path.extname(filename))
-    
+
     // まずバージョンパターンを除去
     const versionPatterns = [
-      /_?v\d+\.\d+\.\d+$/i,     // _v1.0.0, v1.0.0
+      /_?v\d+\.\d+\.\d+$/i, // _v1.0.0, v1.0.0
       /_?ver\.?\d+\.\d+\.\d+$/i, // _ver1.0.0, _ver.1.0.0
-      /_?Ver\d+\.\d+$/i,        // _Ver1.1
-      /V\d+\.\d+$/i,            // V1.2
+      /_?Ver\d+\.\d+$/i, // _Ver1.1
+      /V\d+\.\d+$/i, // V1.2
     ]
-    
+
     let cleanName = nameWithoutExt
     for (const pattern of versionPatterns) {
       cleanName = cleanName.replace(pattern, '')
     }
-    
+
     // 商品名パターンを除去
     const productNamePatterns = [
       /MocomocoRoomwear/gi,
@@ -261,25 +264,35 @@ export class VpmConverter {
       /Cat_Ring/gi,
       /SmartVibe/gi,
       /MacaronDevil/gi,
-      /PetiteLoliDress/gi
+      /PetiteLoliDress/gi,
     ]
-    
+
     for (const pattern of productNamePatterns) {
       cleanName = cleanName.replace(pattern, '')
     }
-    
+
     // 前後のアンダースコアやドットを除去
-    cleanName = cleanName.replace(/^[._-]+|[._-]+$/g, '')
-    
+    cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
+
     // 意味のない部分を除去
-    const meaninglessParts = ['Materials', 'Material', 'Texture', 'Tex', 'Full', 'FullSet', 'Set', 'Komado', 'FullSet']
+    const meaninglessParts = [
+      'Materials',
+      'Material',
+      'Texture',
+      'Tex',
+      'Full',
+      'FullSet',
+      'Set',
+      'Komado',
+      'FullSet',
+    ]
     for (const part of meaninglessParts) {
-      cleanName = cleanName.replace(new RegExp(part, 'gi'), '')
+      cleanName = cleanName.replaceAll(new RegExp(part, 'gi'), '')
     }
-    
+
     // 再度前後のアンダースコアやドットを除去
-    cleanName = cleanName.replace(/^[._-]+|[._-]+$/g, '')
-    
+    cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
+
     // 空の場合やファイル全体が商品名のみの場合
     if (!cleanName || cleanName.length === 0) {
       // 特殊なケースの識別
@@ -292,28 +305,31 @@ export class VpmConverter {
       // 単一ファイルの場合は識別子なしとする
       return ''
     }
-    
+
     // アンダースコアとドットで分割
-    const parts = cleanName.split(/[._-]+/).filter(part => part.length > 0)
-    
+    const parts = cleanName.split(/[._-]+/).filter((part) => part.length > 0)
+
     if (parts.length === 0) {
       return ''
     }
-    
+
     // 複数のアバター名が含まれている場合の処理
     if (parts.length > 1) {
       // 全てが大文字始まりの名前かチェック
-      if (parts.every(part => /^[A-Z][a-z]+$/.test(part))) {
+      if (parts.every((part) => /^[A-Z][a-z]+$/.test(part))) {
         const combined = parts.join('').toLowerCase()
-        return combined.substring(0, 20)
+        return combined.slice(0, 20)
       }
       // そうでなければ最初の意味のある部分を使用
-      return parts[0].toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20)
+      return parts[0]
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9]/g, '')
+        .slice(0, 20)
     }
-    
+
     // 単一の部分の場合
-    let identifier = parts[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-    return identifier.substring(0, 20) || ''
+    const identifier = parts[0].toLowerCase().replaceAll(/[^a-z0-9]/g, '')
+    return identifier.slice(0, 20) || ''
   }
 
   /**
@@ -330,12 +346,10 @@ export class VpmConverter {
     if (originalItemName) {
       extractedVersion = this.extractVersionFromFilename(originalItemName)
     }
-    
+
     // 元のアイテム名からバージョンが抽出できない場合は、パッケージパスから抽出
-    if (!extractedVersion) {
-      extractedVersion = this.extractVersionFromFilename(packagePath)
-    }
-    
+    extractedVersion ??= this.extractVersionFromFilename(packagePath)
+
     if (extractedVersion) {
       // 抽出したバージョンが既存のものと重複しないかチェック
       const existingPackage = existingRepository.packages[packageName]
@@ -360,7 +374,7 @@ export class VpmConverter {
     // 例: 2025.6.8 → 2025.6.8-1 → 2025.6.8-2 ...
     let counter = 1
     let versionWithSuffix = `${dateVersion}-${counter}`
-    
+
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (existingPackageForDate.versions[versionWithSuffix]) {
       counter++
@@ -395,11 +409,11 @@ export class VpmConverter {
         version = version.replaceAll('_', '.')
 
         // セマンティックバージョンの形式に正規化
-        const parts = version.split('.').map(part => {
+        const parts = version.split('.').map((part) => {
           // 先頭ゼロを削除（例: "03" → "3"）
-          return parseInt(part, 10).toString()
+          return Number.parseInt(part, 10).toString()
         })
-        
+
         // 最低2つのパート（major.minor）が必要
         if (parts.length < 2) {
           parts.push('0')
@@ -488,7 +502,7 @@ export class VpmConverter {
     manifest: VpmPackageManifest
   ): void {
     const extractDir = path.join(targetDir, 'extracted')
-    
+
     try {
       fs.mkdirSync(extractDir, { recursive: true })
 
@@ -516,7 +530,7 @@ export class VpmConverter {
     manifest: VpmPackageManifest
   ): void {
     const extractDir = path.join(targetDir, 'zip_extracted')
-    
+
     try {
       fs.mkdirSync(extractDir, { recursive: true })
 
@@ -818,7 +832,7 @@ export class VpmConverter {
   private generatePackageUrl(packageName: string, version: string): string {
     const baseUrl = Environment.getValue('VPM_BASE_URL')
     const packageFileName = `${packageName}-${version}.zip`
-    
+
     if (baseUrl) {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
@@ -841,7 +855,7 @@ export class VpmConverter {
    */
   private generateRepositoryUrl(): string {
     const baseUrl = Environment.getValue('VPM_BASE_URL')
-    
+
     if (baseUrl) {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
@@ -948,10 +962,12 @@ export class VpmConverter {
         // 展開されたUnityPackageファイルを探す
         const files = fs.readdirSync(extractDir)
         this.logger.debug(`Files in extracted ZIP: ${files.join(', ')}`)
-        
+
         // 再帰的に検索
         const unityPackageFiles = this.findUnityPackageFiles(extractDir)
-        this.logger.debug(`Found UnityPackage files: ${unityPackageFiles.join(', ')}`)
+        this.logger.debug(
+          `Found UnityPackage files: ${unityPackageFiles.join(', ')}`
+        )
 
         if (unityPackageFiles.length === 0) {
           this.logger.warn(`No .unitypackage file found in extracted ZIP`)
@@ -1037,7 +1053,7 @@ export class VpmConverter {
   private saveRepository(repository: VpmRepositoryManifest): void {
     const manifestPath = path.join(this.repositoryDir, 'vpm.json')
     fs.writeFileSync(manifestPath, JSON.stringify(repository, null, 2))
-    
+
     const totalPackages = Object.keys(repository.packages).length
     const totalVersions = Object.values(repository.packages).reduce(
       (sum, pkg) => sum + Object.keys(pkg.versions).length,

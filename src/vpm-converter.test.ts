@@ -113,8 +113,8 @@ describe('VpmConverter', () => {
     // Should copy the UnityPackage as zip
     expect(mockFs.copyFileSync).toHaveBeenCalled()
 
-    // Should write package.json and repository manifest
-    expect(mockFs.writeFileSync).toHaveBeenCalledTimes(2)
+    // Should write package.json and repository manifest (repository saved after each package)
+    expect(mockFs.writeFileSync).toHaveBeenCalledTimes(3)
   })
 
   test('should handle special characters in product names', () => {
