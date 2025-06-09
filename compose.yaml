@@ -4,3 +4,10 @@ services:
     volumes:
       - ./data:/data
     restart: on-failure:5
+    environment:
+      # VPM packages will be served via HTTP instead of file:// URLs
+      VPM_BASE_URL: "http://localhost:8080"
+      # Enable or disable VPM conversion
+      VPM_ENABLED: "true"
+      # Directory path for VPM repository
+      VPM_REPOSITORY_DIR: "/data/vpm-repository"
