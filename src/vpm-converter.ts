@@ -271,7 +271,6 @@ export class VpmConverter {
       'Full',
       'FullSet',
       'Set',
-      'Komado',
       'FullSet',
     ]
     for (const part of meaninglessParts) {
