@@ -255,21 +255,9 @@ export class VpmConverter {
       cleanName = cleanName.replace(pattern, '')
     }
 
-    // 商品名パターンを除去
-    const productNamePatterns = [
-      /MocomocoRoomwear/gi,
-      /HeadSpaWire/gi,
-      /GestureSound/gi,
-      /AvatarPoseSystem/gi,
-      /Cat_Ring/gi,
-      /SmartVibe/gi,
-      /MacaronDevil/gi,
-      /PetiteLoliDress/gi,
-    ]
-
-    for (const pattern of productNamePatterns) {
-      cleanName = cleanName.replace(pattern, '')
-    }
+    // 一般的なファイル名パターンのクリーンアップ
+    // 大文字で始まる単語を連続させたパターン（CamelCase商品名など）を処理
+    // ただし、具体的な商品名はハードコーディングしない
 
     // 前後のアンダースコアやドットを除去
     cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')

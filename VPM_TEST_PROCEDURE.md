@@ -9,7 +9,8 @@
 
 ### 1. Docker Compose起動
 ```bash
-cd /mnt/s/Git/@tomacheese/booth-purchased-items-manager
+# プロジェクトのルートディレクトリに移動
+cd path/to/booth-purchased-items-manager
 docker compose up --build -d
 ```
 
