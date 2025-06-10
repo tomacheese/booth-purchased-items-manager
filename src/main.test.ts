@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-empty-function */
-import { fetchPurchased, extractIdLinking, downloadItems } from './main'
+import {
+  fetchPurchased,
+  fetchFreeItems,
+  extractIdLinking,
+  downloadItems,
+} from './main'
 import { BoothRequest, BoothParser, BoothProduct } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
@@ -580,5 +585,187 @@ describe('Main Functions', () => {
         expect(products[0]).toHaveProperty('productName')
       }
     }
+  })
+
+  describe('fetchFreeItems', () => {
+    // 無料アイテムの設定ファイルが存在しない場合のテスト
+    test('should create empty free items file if not exists', async () => {
+      mockFs.existsSync.mockReturnValue(false)
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toEqual([])
+      expect(mockFs.writeFileSync).toHaveBeenCalledWith(
+        expect.any(String),
+        JSON.stringify({ freeItems: [] }, null, 2)
+      )
+    })
+
+    // 無料アイテムの設定ファイルが空の場合のテスト
+    test('should return empty array if free items config is empty', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(JSON.stringify({ freeItems: [] }))
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toEqual([])
+    })
+
+    // 無料アイテムを正常に取得できる場合のテスト
+    test('should fetch free items from config', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          freeItems: [
+            {
+              productId: '99999',
+              name: 'Free Test Item',
+              url: 'https://booth.pm/ja/items/99999',
+            },
+          ],
+        })
+      )
+
+      // Mock product page response
+      const mockHtml = `
+        <html>
+          <head>
+            <meta property="og:image" content="https://example.com/thumb.jpg">
+          </head>
+          <body>
+            <h1 class="text-text-default">Free Test Item</h1>
+            <a href="https://booth.pm/ja/shop/12345">
+              <span>Test Shop</span>
+            </a>
+            <div>
+              <span class="text-text-gray700">free_item.zip</span>
+              <a href="https://booth.pm/downloadables/11111"></a>
+            </div>
+          </body>
+        </html>
+      `
+
+      jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue(mockHtml)
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
+        productId: '99999',
+        productName: 'Free Test Item',
+        productURL: 'https://booth.pm/ja/items/99999',
+        thumbnailURL: 'https://example.com/thumb.jpg',
+        shopName: 'Test Shop',
+        shopURL: 'https://booth.pm/ja/shop/12345',
+        items: [
+          {
+            itemId: '11111',
+            itemName: 'free_item.zip',
+            downloadURL: 'https://booth.pm/downloadables/11111',
+          },
+        ],
+      })
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({
+        productId: '99999',
+        productName: 'Free Test Item',
+        type: 'free',
+      })
+    })
+
+    // URLからproductIdを抽出する場合のテスト
+    test('should extract productId from URL if not provided', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          freeItems: [
+            {
+              url: 'https://booth.pm/ja/items/88888',
+              name: 'Another Free Item',
+            },
+          ],
+        })
+      )
+
+      const mockHtml = '<html>Mock HTML</html>'
+      jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue(mockHtml)
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
+        productId: '88888',
+        productName: 'Another Free Item',
+        productURL: 'https://booth.pm/ja/items/88888',
+        thumbnailURL: 'https://example.com/thumb.jpg',
+        shopName: 'Test Shop',
+        shopURL: 'https://booth.pm/ja/shop/12345',
+        items: [],
+      })
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].productId).toBe('88888')
+    })
+
+    // 無効な設定項目をスキップするテスト
+    test('should skip invalid free item configurations', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          freeItems: [
+            { name: 'Invalid Item - No ID or URL' },
+            { productId: '77777', name: 'Valid Item' },
+          ],
+        })
+      )
+
+      const mockHtml = '<html>Mock HTML</html>'
+      jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue(mockHtml)
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
+        productId: '77777',
+        productName: 'Valid Item',
+        productURL: 'https://booth.pm/ja/items/77777',
+        thumbnailURL: 'https://example.com/thumb.jpg',
+        shopName: 'Test Shop',
+        shopURL: 'https://booth.pm/ja/shop/12345',
+        items: [],
+      })
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].productId).toBe('77777')
+    })
+
+    // 商品ページの取得に失敗した場合のテスト
+    test('should handle failed product page fetch', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          freeItems: [{ productId: '66666', name: 'Failed Item' }],
+        })
+      )
+
+      jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue('')
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toEqual([])
+    })
+
+    // パースに失敗した場合のテスト
+    test('should handle failed parsing', async () => {
+      mockFs.existsSync.mockReturnValue(true)
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          freeItems: [{ productId: '55555', name: 'Parse Failed Item' }],
+        })
+      )
+
+      const mockHtml = '<html>Invalid HTML</html>'
+      jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue(mockHtml)
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue(null)
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toEqual([])
+    })
   })
 })

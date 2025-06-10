@@ -84,6 +84,86 @@ export async function fetchPurchased(
 }
 
 /**
+ * 無料配布商品を取得する
+ * @param boothRequest BoothRequestインスタンス
+ * @param boothParser BoothParserインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @returns 商品情報配列（type: 'free'を含む）
+ */
+export async function fetchFreeItems(
+  boothRequest: BoothRequest,
+  boothParser: BoothParser,
+  pageCache: PageCache
+) {
+  const logger = Logger.configure('fetchFreeItems')
+  const freeItemsPath = Environment.getPath('FREE_ITEMS_PATH')
+  if (!fs.existsSync(freeItemsPath)) {
+    logger.info(
+      'Free items configuration file not found, creating empty file...'
+    )
+    fs.writeFileSync(freeItemsPath, JSON.stringify({ freeItems: [] }, null, 2))
+    return []
+  }
+
+  const freeItemsConfig = JSON.parse(
+    fs.readFileSync(freeItemsPath, 'utf8')
+  ) as {
+    freeItems: {
+      productId?: string
+      url?: string
+      name?: string
+    }[]
+  }
+  const freeProducts = []
+
+  for (const item of freeItemsConfig.freeItems) {
+    const productId = item.productId ?? item.url?.match(/items\/(\d+)/)?.[1]
+    if (!productId) {
+      logger.warn(`Invalid free item configuration: ${JSON.stringify(item)}`)
+      continue
+    }
+
+    logger.info(`Fetching free item: ${item.name ?? productId} [${productId}]`)
+
+    const html = await pageCache.loadOrFetch(
+      'product',
+      productId,
+      1,
+      async () => {
+        const response = await boothRequest.getProductPage(productId)
+        if (response.status !== 200) {
+          logger.warn(
+            `Failed to fetch free item ${productId}: ${response.status}`
+          )
+          return ''
+        }
+        return response.data
+      }
+    )
+
+    if (!html) {
+      continue
+    }
+
+    const product = boothParser.parseFreeItemPage(
+      html,
+      productId,
+      item.url ?? `https://booth.pm/ja/items/${productId}`
+    )
+    if (product) {
+      freeProducts.push({ ...product, type: 'free' })
+      logger.info(
+        `Successfully parsed free item: ${product.productName} [${productId}]`
+      )
+    } else {
+      logger.warn(`Failed to parse free item ${productId}`)
+    }
+  }
+
+  return freeProducts
+}
+
+/**
  * 各商品の説明文から他Booth商品へのリンク関係（IDペア）を抽出する
  * @param boothRequest BoothRequestインスタンス
  * @param boothParser BoothParserインスタンス
@@ -220,7 +300,19 @@ async function main() {
     ? JSON.parse(fs.readFileSync(productPath, 'utf8'))
     : []
 
-  const products = await fetchPurchased(boothRequest, boothParser, pageCache)
+  const purchasedProducts = await fetchPurchased(
+    boothRequest,
+    boothParser,
+    pageCache
+  )
+  const freeProducts = await fetchFreeItems(
+    boothRequest,
+    boothParser,
+    pageCache
+  )
+
+  // Combine all products
+  const products = [...purchasedProducts, ...freeProducts]
 
   // Save the products to a file
   fs.writeFileSync(productPath, JSON.stringify(products, null, 2))

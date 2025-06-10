@@ -58,6 +58,10 @@ export class Environment {
       value: process.env.VPM_BASE_URL ?? '',
       type: 'string',
     },
+    FREE_ITEMS_PATH: {
+      value: process.env.FREE_ITEMS_PATH ?? 'data/free-items.json',
+      type: 'file',
+    },
   } as const
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

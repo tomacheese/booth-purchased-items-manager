@@ -360,4 +360,145 @@ describe('BoothParser', () => {
       }
     }
   })
+
+  // 無料配布商品ページのパースをテスト
+  test('should parse free item page', () => {
+    const mockHtml = `
+      <html>
+        <head>
+          <meta property="og:image" content="https://example.com/thumbnail.jpg">
+        </head>
+        <body>
+          <h1 class="text-text-default">Free Item</h1>
+          <a href="https://booth.pm/ja/shop/12345">
+            <span>Shop Name</span>
+          </a>
+          <div>
+            <span class="text-text-gray700">free_item.zip</span>
+            <a href="https://booth.pm/downloadables/11111"></a>
+          </div>
+        </body>
+      </html>
+    `
+
+    const result = boothParser.parseFreeItemPage(
+      mockHtml,
+      '99999',
+      'https://booth.pm/ja/items/99999'
+    )
+
+    expect(result).toMatchObject({
+      productId: '99999',
+      productName: 'Free Item',
+      productURL: 'https://booth.pm/ja/items/99999',
+      thumbnailURL: 'https://example.com/thumbnail.jpg',
+      shopName: 'Shop Name',
+      shopURL: 'https://booth.pm/ja/shop/12345',
+      items: [
+        {
+          itemId: '11111',
+          itemName: 'free_item.zip',
+          downloadURL: 'https://booth.pm/downloadables/11111',
+        },
+      ],
+    })
+  })
+
+  // 無料配布商品ページで商品名が見つからない場合のテスト
+  test('should return null if product name not found in free item page', () => {
+    const mockHtml = `
+      <html>
+        <head>
+          <meta property="og:image" content="https://example.com/thumbnail.jpg">
+        </head>
+        <body>
+          <a href="https://booth.pm/ja/shop/12345">
+            <span>Shop Name</span>
+          </a>
+        </body>
+      </html>
+    `
+
+    const result = boothParser.parseFreeItemPage(
+      mockHtml,
+      '99999',
+      'https://booth.pm/ja/items/99999'
+    )
+    expect(result).toBeNull()
+  })
+
+  // 無料配布商品ページでサムネイルが見つからない場合のテスト
+  test('should return null if thumbnail not found in free item page', () => {
+    const mockHtml = `
+      <html>
+        <body>
+          <h1 class="text-text-default">Free Item</h1>
+          <a href="https://booth.pm/ja/shop/12345">
+            <span>Shop Name</span>
+          </a>
+        </body>
+      </html>
+    `
+
+    const result = boothParser.parseFreeItemPage(
+      mockHtml,
+      '99999',
+      'https://booth.pm/ja/items/99999'
+    )
+    expect(result).toBeNull()
+  })
+
+  // 無料配布商品ページでショップ情報が見つからない場合のテスト
+  test('should return null if shop info not found in free item page', () => {
+    const mockHtml = `
+      <html>
+        <head>
+          <meta property="og:image" content="https://example.com/thumbnail.jpg">
+        </head>
+        <body>
+          <h1 class="text-text-default">Free Item</h1>
+        </body>
+      </html>
+    `
+
+    const result = boothParser.parseFreeItemPage(
+      mockHtml,
+      '99999',
+      'https://booth.pm/ja/items/99999'
+    )
+    expect(result).toBeNull()
+  })
+
+  // 無料配布商品ページでダウンロードリンクが見つからない場合のテスト
+  test('should parse free item page without download links', () => {
+    const mockHtml = `
+      <html>
+        <head>
+          <meta property="og:image" content="https://example.com/thumbnail.jpg">
+        </head>
+        <body>
+          <h1 class="text-text-default">Free Item</h1>
+          <a href="https://booth.pm/ja/shop/12345">
+            <span>Shop Name</span>
+          </a>
+        </body>
+      </html>
+    `
+
+    const result = boothParser.parseFreeItemPage(
+      mockHtml,
+      '99999',
+      'https://booth.pm/ja/items/99999'
+    )
+
+    expect(result).toMatchObject({
+      productId: '99999',
+      productName: 'Free Item',
+      productURL: 'https://booth.pm/ja/items/99999',
+      thumbnailURL: 'https://example.com/thumbnail.jpg',
+      shopName: 'Shop Name',
+      shopURL: 'https://booth.pm/ja/shop/12345',
+      items: [],
+    })
+  })
 })

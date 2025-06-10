@@ -320,4 +320,81 @@ export class BoothParser {
     }
     return boothIds
   }
+
+  /**
+   * 無料配布商品ページから商品情報を解析する
+   * @param html ページHTML文字列
+   * @param productId 商品ID
+   * @param productUrl 商品URL
+   * @returns 商品情報
+   */
+  parseFreeItemPage(
+    html: string,
+    productId: string,
+    productUrl: string
+  ): BoothProduct | null {
+    const root = parseHtml(html)
+
+    // 商品名を取得
+    const productName =
+      root.querySelector('h1.text-text-default')?.textContent.trim() ?? null
+    if (!productName) {
+      return null
+    }
+
+    // サムネイルURLを取得
+    const thumbnailURL =
+      root
+        .querySelector('meta[property="og:image"]')
+        ?.getAttribute('content') ?? null
+    if (!thumbnailURL) {
+      return null
+    }
+
+    // ショップ情報を取得
+    const shopElement = root.querySelector('a[href*="/shop/"]')
+    const shopName =
+      shopElement?.querySelector('span')?.textContent.trim() ?? null
+    const shopURL = shopElement?.getAttribute('href') ?? null
+    if (!shopName || !shopURL) {
+      return null
+    }
+
+    // ダウンロードボタンを探す（無料配布の場合）
+    const items: BoothProductItem[] = []
+    const downloadButtons = root.querySelectorAll('a[href*="/downloadables/"]')
+
+    for (const button of downloadButtons) {
+      const downloadURL = button.getAttribute('href')
+      if (!downloadURL) continue
+
+      const itemId = /downloadables\/(\d+)/.exec(downloadURL)?.[1]
+      if (!itemId) continue
+
+      // ボタンの近くにあるファイル名を探す
+      const fileNameElement = button
+        .closest('div')
+        ?.querySelector('span.text-text-gray700')
+      const itemName = fileNameElement?.textContent.trim() ?? `item_${itemId}`
+
+      items.push({
+        itemId,
+        itemName,
+        downloadURL,
+      })
+    }
+
+    // 無料配布でダウンロードボタンが見つからない場合は、商品ページに直接ダウンロードリンクがある可能性
+    // この場合は後で別途対応が必要かもしれません
+
+    return {
+      productId,
+      productName,
+      productURL: productUrl,
+      thumbnailURL,
+      shopName,
+      shopURL,
+      items,
+    }
+  }
 }
