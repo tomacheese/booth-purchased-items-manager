@@ -384,9 +384,6 @@ export class BoothParser {
       })
     }
 
-    // 無料配布でダウンロードボタンが見つからない場合は、商品ページに直接ダウンロードリンクがある可能性
-    // この場合は後で別途対応が必要かもしれません
-
     return {
       productId,
       productName,

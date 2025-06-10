@@ -114,7 +114,7 @@ export async function fetchFreeItems(
       name?: string
     }[]
   }
-  const freeProducts = []
+  const freeProducts: (BoothProduct & { type: string })[] = []
 
   for (const item of freeItemsConfig.freeItems) {
     const productId = item.productId ?? item.url?.match(/items\/(\d+)/)?.[1]
