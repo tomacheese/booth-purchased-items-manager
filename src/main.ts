@@ -5,6 +5,7 @@ import { Environment } from './environment'
 import { Discord, Logger } from '@book000/node-utils'
 import { generateLinkedList } from './generate-linked-list'
 import { VpmConverter } from './vpm-converter'
+import { parse as parseJsonc } from 'jsonc-parser'
 
 /**
  * 購入済み商品（ライブラリ・ギフト）を全て取得する
@@ -105,25 +106,22 @@ export async function fetchFreeItems(
     return []
   }
 
-  const freeItemsConfig = JSON.parse(
+  const freeItemsConfig = parseJsonc(
     fs.readFileSync(freeItemsPath, 'utf8')
   ) as {
-    freeItems: {
-      productId?: string
-      url?: string
-      name?: string
-    }[]
+    freeItems: string[]
   }
   const freeProducts: (BoothProduct & { type: string })[] = []
 
-  for (const item of freeItemsConfig.freeItems) {
-    const productId = item.productId ?? item.url?.match(/items\/(\d+)/)?.[1]
-    if (!productId) {
-      logger.warn(`Invalid free item configuration: ${JSON.stringify(item)}`)
+  for (const productId of freeItemsConfig.freeItems) {
+    if (!productId || typeof productId !== 'string') {
+      logger.warn(
+        `Invalid free item configuration: ${JSON.stringify(productId)}`
+      )
       continue
     }
 
-    logger.info(`Fetching free item: ${item.name ?? productId} [${productId}]`)
+    logger.info(`Fetching free item: [${productId}]`)
 
     const html = await pageCache.loadOrFetch(
       'product',
@@ -148,7 +146,7 @@ export async function fetchFreeItems(
     const product = boothParser.parseFreeItemPage(
       html,
       productId,
-      item.url ?? `https://booth.pm/ja/items/${productId}`
+      `https://booth.pm/ja/items/${productId}`
     )
     if (product) {
       freeProducts.push({ ...product, type: 'free' })

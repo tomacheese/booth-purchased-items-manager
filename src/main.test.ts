@@ -616,13 +616,7 @@ describe('Main Functions', () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
-          freeItems: [
-            {
-              productId: '99999',
-              name: 'Free Test Item',
-              url: 'https://booth.pm/ja/items/99999',
-            },
-          ],
+          freeItems: ['99999'],
         })
       )
 
@@ -672,36 +666,43 @@ describe('Main Functions', () => {
       })
     })
 
-    // URLからproductIdを抽出する場合のテスト
-    test('should extract productId from URL if not provided', async () => {
+    // 複数のproductIdを処理する場合のテスト
+    test('should handle multiple product IDs', async () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
-          freeItems: [
-            {
-              url: 'https://booth.pm/ja/items/88888',
-              name: 'Another Free Item',
-            },
-          ],
+          freeItems: ['88888', '77777'],
         })
       )
 
       const mockHtml = '<html>Mock HTML</html>'
       jest.spyOn(pageCache, 'loadOrFetch').mockResolvedValue(mockHtml)
-      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
-        productId: '88888',
-        productName: 'Another Free Item',
-        productURL: 'https://booth.pm/ja/items/88888',
-        thumbnailURL: 'https://example.com/thumb.jpg',
-        shopName: 'Test Shop',
-        shopURL: 'https://booth.pm/ja/shop/12345',
-        items: [],
-      })
+      jest
+        .spyOn(boothParser, 'parseFreeItemPage')
+        .mockReturnValueOnce({
+          productId: '88888',
+          productName: 'Another Free Item',
+          productURL: 'https://booth.pm/ja/items/88888',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://booth.pm/ja/shop/12345',
+          items: [],
+        })
+        .mockReturnValueOnce({
+          productId: '77777',
+          productName: 'Second Free Item',
+          productURL: 'https://booth.pm/ja/items/77777',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://booth.pm/ja/shop/12345',
+          items: [],
+        })
 
       const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
 
-      expect(result).toHaveLength(1)
+      expect(result).toHaveLength(2)
       expect(result[0].productId).toBe('88888')
+      expect(result[1].productId).toBe('77777')
     })
 
     // 無効な設定項目をスキップするテスト
@@ -709,10 +710,7 @@ describe('Main Functions', () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
-          freeItems: [
-            { name: 'Invalid Item - No ID or URL' },
-            { productId: '77777', name: 'Valid Item' },
-          ],
+          freeItems: [null, '', '77777'],
         })
       )
 
@@ -739,7 +737,7 @@ describe('Main Functions', () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
-          freeItems: [{ productId: '66666', name: 'Failed Item' }],
+          freeItems: ['66666'],
         })
       )
 
@@ -755,7 +753,7 @@ describe('Main Functions', () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
-          freeItems: [{ productId: '55555', name: 'Parse Failed Item' }],
+          freeItems: ['55555'],
         })
       )
 
