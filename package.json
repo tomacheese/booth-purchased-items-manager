@@ -71,5 +71,8 @@
     "setupFilesAfterEnv": [
       "jest-expect-message"
     ]
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
   }
 }

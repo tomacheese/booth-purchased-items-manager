@@ -5,6 +5,7 @@ import { Environment } from './environment'
 import { Discord, Logger } from '@book000/node-utils'
 import { generateLinkedList } from './generate-linked-list'
 import { VpmConverter } from './vpm-converter'
+import { parse as parseJsonc } from 'jsonc-parser'
 
 /**
  * 購入済み商品（ライブラリ・ギフト）を全て取得する
@@ -81,6 +82,83 @@ export async function fetchPurchased(
   ]
 
   return products
+}
+
+/**
+ * 無料配布商品を取得する
+ * @param boothRequest BoothRequestインスタンス
+ * @param boothParser BoothParserインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @returns 商品情報配列（type: 'free'を含む）
+ */
+export async function fetchFreeItems(
+  boothRequest: BoothRequest,
+  boothParser: BoothParser,
+  pageCache: PageCache
+) {
+  const logger = Logger.configure('fetchFreeItems')
+  const freeItemsPath = Environment.getPath('FREE_ITEMS_PATH')
+  if (!fs.existsSync(freeItemsPath)) {
+    logger.info(
+      'Free items configuration file not found, creating empty file...'
+    )
+    fs.writeFileSync(freeItemsPath, JSON.stringify({ freeItems: [] }, null, 2))
+    return []
+  }
+
+  const freeItemsConfig = parseJsonc(
+    fs.readFileSync(freeItemsPath, 'utf8')
+  ) as {
+    freeItems: string[]
+  }
+  const freeProducts: (BoothProduct & { type: string })[] = []
+
+  for (const productId of freeItemsConfig.freeItems) {
+    if (!productId || typeof productId !== 'string') {
+      logger.warn(
+        `Invalid free item configuration: ${JSON.stringify(productId)}`
+      )
+      continue
+    }
+
+    logger.info(`Fetching free item: [${productId}]`)
+
+    const html = await pageCache.loadOrFetch(
+      'product',
+      productId,
+      1,
+      async () => {
+        const response = await boothRequest.getProductPage(productId)
+        if (response.status !== 200) {
+          logger.warn(
+            `Failed to fetch free item ${productId}: ${response.status}`
+          )
+          return ''
+        }
+        return response.data
+      }
+    )
+
+    if (!html) {
+      continue
+    }
+
+    const product = boothParser.parseFreeItemPage(
+      html,
+      productId,
+      `https://booth.pm/ja/items/${productId}`
+    )
+    if (product) {
+      freeProducts.push({ ...product, type: 'free' })
+      logger.info(
+        `Successfully parsed free item: ${product.productName} [${productId}]`
+      )
+    } else {
+      logger.warn(`Failed to parse free item ${productId}`)
+    }
+  }
+
+  return freeProducts
 }
 
 /**
@@ -220,7 +298,19 @@ async function main() {
     ? JSON.parse(fs.readFileSync(productPath, 'utf8'))
     : []
 
-  const products = await fetchPurchased(boothRequest, boothParser, pageCache)
+  const purchasedProducts = await fetchPurchased(
+    boothRequest,
+    boothParser,
+    pageCache
+  )
+  const freeProducts = await fetchFreeItems(
+    boothRequest,
+    boothParser,
+    pageCache
+  )
+
+  // Combine all products
+  const products = [...purchasedProducts, ...freeProducts]
 
   // Save the products to a file
   fs.writeFileSync(productPath, JSON.stringify(products, null, 2))
