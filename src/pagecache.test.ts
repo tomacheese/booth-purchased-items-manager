@@ -93,7 +93,7 @@ describe('PageCache', () => {
   // nullやundefinedデータを保存しないことのテスト
   test('should not save null or undefined data', () => {
     pageCache.save('testType', 'testId', null)
-     
+
     pageCache.save('testType', 'testId', undefined)
 
     expect(mockFs.writeFileSync).not.toHaveBeenCalled()
