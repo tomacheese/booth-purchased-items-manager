@@ -37,6 +37,7 @@ ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 ENV PRODUCTS_PATH=/data/products.json
 ENV ID_MAPPING_PATH=/data/id_linking.json
 ENV LINKED_ITEMS_PATH=/data/linked_items.md
+ENV FREE_ITEMS_PATH=/data/free-items.json
 ENV COOKIE_PATH=/data/cookies.json
 ENV CACHE_DIR=/data/cache/
 ENV DOWNLOADED_ITEMS_DIR=/data/items/
