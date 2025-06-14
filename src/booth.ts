@@ -335,9 +335,12 @@ export class BoothParser {
   ): BoothProduct | null {
     const root = parseHtml(html)
 
-    // 商品名を取得
+    // 商品名を取得（複数のセレクタを試す）
     const productName =
-      root.querySelector('h1.text-text-default')?.textContent.trim() ?? null
+      root.querySelector('h2.font-bold')?.textContent.trim() ??
+      root.querySelector('h1.text-text-default')?.textContent.trim() ??
+      root.querySelector('h1')?.textContent.trim() ??
+      null
     if (!productName) {
       return null
     }
@@ -351,8 +354,10 @@ export class BoothParser {
       return null
     }
 
-    // ショップ情報を取得
-    const shopElement = root.querySelector('a[href*="/shop/"]')
+    // ショップ情報を取得（複数のセレクタを試す）
+    let shopElement = root.querySelector('a[data-product-list*="shop_index"]')
+    shopElement ??= root.querySelector('a[href*=".booth.pm/"]')
+    shopElement ??= root.querySelector('a[href*="/shop/"]')
     const shopName =
       shopElement?.querySelector('span')?.textContent.trim() ?? null
     const shopURL = shopElement?.getAttribute('href') ?? null
@@ -362,7 +367,11 @@ export class BoothParser {
 
     // ダウンロードボタンを探す（無料配布の場合）
     const items: BoothProductItem[] = []
-    const downloadButtons = root.querySelectorAll('a[href*="/downloadables/"]')
+
+    // 複数のパターンでダウンロードリンクを探す
+    const downloadButtons = root.querySelectorAll(
+      'a.btn[href*="/downloadables/"], a[href*="/downloadables/"]'
+    )
 
     for (const button of downloadButtons) {
       const downloadURL = button.getAttribute('href')
@@ -371,11 +380,29 @@ export class BoothParser {
       const itemId = /downloadables\/(\d+)/.exec(downloadURL)?.[1]
       if (!itemId) continue
 
-      // ボタンの近くにあるファイル名を探す
-      const fileNameElement = button
-        .closest('div')
-        ?.querySelector('span.text-text-gray700')
-      const itemName = fileNameElement?.textContent.trim() ?? `item_${itemId}`
+      // ファイル名を取得（複数のパターンを試す）
+      let itemName = ''
+
+      // ボタン内のテキストから取得を試す
+      const buttonText = button.textContent.trim() || ''
+      const fileNameMatch = /([^\s]+\.\w+)/.exec(buttonText)
+      if (fileNameMatch?.[1]) {
+        itemName = fileNameMatch[1]
+      } else {
+        // 近くの要素からファイル名を探す
+        const parentDiv = button.closest('div')
+        if (parentDiv) {
+          const textSpan = parentDiv.querySelector('span.text-text-gray700')
+          if (textSpan?.textContent.trim()) {
+            itemName = textSpan.textContent.trim()
+          }
+        }
+      }
+
+      // どちらも見つからない場合はデフォルト名
+      if (!itemName) {
+        itemName = `item_${itemId}`
+      }
 
       items.push({
         itemId,
