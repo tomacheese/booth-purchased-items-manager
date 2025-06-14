@@ -337,8 +337,9 @@ export class BoothParser {
 
     // 商品名を取得（h2要素から）
     const productName =
-      root.querySelector('h2.font-bold')?.textContent.trim() ?? 
-      root.querySelector('h1')?.textContent.trim() ?? null
+      root.querySelector('h2.font-bold')?.textContent.trim() ??
+      root.querySelector('h1')?.textContent.trim() ??
+      null
     if (!productName) {
       return null
     }
@@ -354,9 +355,7 @@ export class BoothParser {
 
     // ショップ情報を取得（複数のセレクタを試す）
     let shopElement = root.querySelector('a[data-product-list*="shop_index"]')
-    if (!shopElement) {
-      shopElement = root.querySelector('a[href*=".booth.pm/"]')
-    }
+    shopElement ??= root.querySelector('a[href*=".booth.pm/"]')
     const shopName =
       shopElement?.querySelector('span')?.textContent.trim() ?? null
     const shopURL = shopElement?.getAttribute('href') ?? null
@@ -366,7 +365,9 @@ export class BoothParser {
 
     // ダウンロードボタンを探す（無料配布の場合）
     const items: BoothProductItem[] = []
-    const downloadButtons = root.querySelectorAll('a.btn[href*="/downloadables/"]')
+    const downloadButtons = root.querySelectorAll(
+      'a.btn[href*="/downloadables/"]'
+    )
 
     for (const button of downloadButtons) {
       const downloadURL = button.getAttribute('href')
@@ -376,8 +377,8 @@ export class BoothParser {
       if (!itemId) continue
 
       // ファイル名を取得（ボタン内のテキストから）
-      const buttonText = button.textContent?.trim() ?? ''
-      const fileNameMatch = buttonText.match(/([^\s]+\.\w+)/)
+      const buttonText = button.textContent.trim() || ''
+      const fileNameMatch = /([^\s]+\.\w+)/.exec(buttonText)
       const itemName = fileNameMatch?.[1] ?? `item_${itemId}`
 
       items.push({
