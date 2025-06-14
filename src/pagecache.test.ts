@@ -93,7 +93,7 @@ describe('PageCache', () => {
   // nullやundefinedデータを保存しないことのテスト
   test('should not save null or undefined data', () => {
     pageCache.save('testType', 'testId', null)
-
+    // eslint-disable-next-line unicorn/no-useless-undefined
     pageCache.save('testType', 'testId', undefined)
 
     expect(mockFs.writeFileSync).not.toHaveBeenCalled()
@@ -135,16 +135,12 @@ describe('PageCache', () => {
   // キャッシュファイル一覧取得のテスト
   test('should list cache files', () => {
     mockFs.existsSync.mockReturnValue(true)
-    ;(
-      mockFs.readdirSync as unknown as jest.MockedFunction<
-        (path: string, options?: { withFileTypes: true }) => fs.Dirent[]
-      >
-    ).mockReturnValue([
+    mockFs.readdirSync.mockReturnValue([
       { name: 'file1.html', isFile: () => true },
       { name: 'file2.html', isFile: () => true },
       { name: 'file3.txt', isFile: () => true },
       { name: 'dir1', isFile: () => false },
-    ] as fs.Dirent[])
+    ] as unknown as fs.Dirent[])
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', 'file2'])
@@ -153,17 +149,13 @@ describe('PageCache', () => {
   // サブディレクトリやhtml以外のファイルを除外するテスト
   test('should ignore subdirectories and non-html files in list', () => {
     mockFs.existsSync.mockReturnValue(true)
-    ;(
-      mockFs.readdirSync as unknown as jest.MockedFunction<
-        (path: string, options?: { withFileTypes: true }) => fs.Dirent[]
-      >
-    ).mockReturnValue([
+    mockFs.readdirSync.mockReturnValue([
       { name: 'file1.html', isFile: () => true },
       { name: 'file2.html', isFile: () => true },
       { name: 'file3.txt', isFile: () => true },
       { name: 'subdir', isFile: () => false },
       { name: '.DS_Store', isFile: () => true },
-    ] as fs.Dirent[])
+    ] as unknown as fs.Dirent[])
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', 'file2'])
@@ -238,18 +230,14 @@ describe('PageCache', () => {
   // 隠しファイルやhtml以外のファイルを除外するテスト
   test('should ignore hidden files and only return html files in list', () => {
     mockFs.existsSync.mockReturnValue(true)
-    ;(
-      mockFs.readdirSync as unknown as jest.MockedFunction<
-        (path: string, options?: { withFileTypes: true }) => fs.Dirent[]
-      >
-    ).mockReturnValue([
+    mockFs.readdirSync.mockReturnValue([
       { name: 'file1.html', isFile: () => true },
       { name: '.hidden.html', isFile: () => true },
       { name: 'file2.html', isFile: () => true },
       { name: '.DS_Store', isFile: () => true },
       { name: 'subdir', isFile: () => false },
       { name: 'file3.txt', isFile: () => true },
-    ] as fs.Dirent[])
+    ] as unknown as fs.Dirent[])
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', '.hidden', 'file2'])
