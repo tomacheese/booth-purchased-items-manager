@@ -367,7 +367,7 @@ export class BoothParser {
 
     // ダウンロードボタンを探す（無料配布の場合）
     const items: BoothProductItem[] = []
-    
+
     // 複数のパターンでダウンロードリンクを探す
     const downloadButtons = root.querySelectorAll(
       'a.btn[href*="/downloadables/"], a[href*="/downloadables/"]'
@@ -382,7 +382,7 @@ export class BoothParser {
 
       // ファイル名を取得（複数のパターンを試す）
       let itemName = ''
-      
+
       // ボタン内のテキストから取得を試す
       const buttonText = button.textContent.trim() || ''
       const fileNameMatch = /([^\s]+\.\w+)/.exec(buttonText)
@@ -398,7 +398,7 @@ export class BoothParser {
           }
         }
       }
-      
+
       // どちらも見つからない場合はデフォルト名
       if (!itemName) {
         itemName = `item_${itemId}`
