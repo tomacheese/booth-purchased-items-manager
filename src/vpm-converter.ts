@@ -252,13 +252,24 @@ export class VpmConverter {
     packagePath: string,
     originalFilename: string
   ): Promise<string> {
-    // ZIP ファイルの場合は内容を分析
+    // まずファイル名からアバター名などの識別子を抽出
+    const filenameBasedIdentifier = this.extractFileIdentifier(originalFilename)
+
+    // アバター名が特定できた場合は、それを優先して使用
+    if (filenameBasedIdentifier && filenameBasedIdentifier.length > 0) {
+      this.logger.debug(
+        `Using filename-based identifier for ${originalFilename}: ${filenameBasedIdentifier}`
+      )
+      return filenameBasedIdentifier
+    }
+
+    // アバター名が特定できない場合のみ、ZIP内容を分析
     if (packagePath.toLowerCase().endsWith('.zip')) {
       try {
         const contentIdentifier = await this.analyzeZipContent(packagePath)
         if (contentIdentifier) {
           this.logger.debug(
-            `Content-based identifier for ${originalFilename}: ${contentIdentifier}`
+            `Using content-based identifier for ${originalFilename}: ${contentIdentifier}`
           )
           return contentIdentifier
         }
@@ -269,8 +280,8 @@ export class VpmConverter {
       }
     }
 
-    // フォールバック: ファイル名ベースの識別子を使用
-    return this.extractFileIdentifier(originalFilename)
+    // どちらでも識別できない場合は空文字を返す
+    return ''
   }
 
   /**
