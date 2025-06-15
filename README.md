@@ -19,41 +19,28 @@ BOOTHで購入した商品や無料配布商品を管理するツールです。
 
 ### 設定方法
 
-1. `data/wishlists.json` ファイルを作成または編集します：
+環境変数 `WISHLIST_IDS` に、カンマ区切りでウィッシュリストIDを指定します：
 
-```json
-{
-  "wishlists": [
-    {
-      // 公開欲しいものリスト（認証不要）
-      "type": "public",
-      "name": "pg2TPBOG",  // URLの末尾部分
-      "description": "公開欲しいものリスト"
-    },
-    {
-      // 非公開欲しいものリスト（認証必要）
-      "type": "private",
-      "id": "123456",  // リストのID
-      "description": "非公開欲しいものリスト"
-    }
-  ]
-}
+```bash
+# 環境変数で設定
+export WISHLIST_IDS="KAaTPPrr,other_id,another_id"
+
+# .env ファイルで設定
+WISHLIST_IDS=KAaTPPrr,other_id,another_id
+
+# Dockerの場合
+docker run -e WISHLIST_IDS="KAaTPPrr,other_id" ...
 ```
 
-### 欲しいものリストのURL形式
+### ウィッシュリストIDの取得方法
 
-- **公開リスト**: `https://booth.pm/wish_list_names/{name}`
-  - 例: `https://booth.pm/wish_list_names/pg2TPBOG`
-  - `name` パラメータに URLの末尾部分を指定します
+ウィッシュリストのURLから末尾のIDを取得します：
 
-- **非公開リスト**: `https://accounts.booth.pm/wish_lists/{id}`
-  - 例: `https://accounts.booth.pm/wish_lists/123456`
-  - `id` パラメータにリストのIDを指定します
-  - ログインが必要です
+- **例**: `https://booth.pm/wish_list_names/KAaTPPrr` → ID: `KAaTPPrr`
 
 ### 動作の流れ
 
-1. 設定された欲しいものリストから全商品を取得
+1. 設定されたウィッシュリストIDから全商品を取得
 2. 各商品のページにアクセスして無料配布かどうかを確認
 3. 無料配布商品の場合、自動的にダウンロード対象に追加
 4. 通常の購入済み商品と同様に処理
@@ -77,21 +64,52 @@ BOOTHで購入した商品や無料配布商品を管理するツールです。
 | `VPM_ENABLED` | VPM変換を有効化 | `true` |
 | `VPM_BASE_URL` | VPMベースURL | - |
 | `FREE_ITEMS_PATH` | 無料アイテムリストのパス | `data/free-items.json` |
-| `WISHLISTS_PATH` | 欲しいものリスト設定のパス | `data/wishlists.json` |
+| `WISHLIST_IDS` | 欲しいものリストID（カンマ区切り） | - |
+
+## 無料アイテム設定
+
+無料アイテムは2つの方法で指定できます：
+
+### 1. ファイルによる指定
+
+`data/free-items.json` ファイルで個別の商品IDを指定：
+
+```json
+{
+  "freeItems": [
+    "1234567",
+    "2345678"
+  ]
+}
+```
+
+### 2. 欲しいものリストによる自動検出
+
+環境変数 `WISHLIST_IDS` で指定したウィッシュリストから自動的に無料アイテムを検出。
+両方の方法を併用することも可能です。
 
 ## 使用方法
 
 ### Dockerを使用する場合
 
 ```bash
+# 基本的な実行
 docker compose up
+
+# 欲しいものリストを指定して実行
+WISHLIST_IDS="KAaTPPrr,other_id" docker compose up
 ```
 
 ### ローカルで実行する場合
 
 ```bash
 pnpm install
+
+# 基本的な実行
 pnpm start
+
+# 欲しいものリストを指定して実行
+WISHLIST_IDS="KAaTPPrr,other_id" pnpm start
 ```
 
 ## ライセンス
