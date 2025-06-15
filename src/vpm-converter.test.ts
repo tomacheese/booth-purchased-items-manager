@@ -51,43 +51,70 @@ describe('VpmConverter', () => {
     })
     mockFs.statSync.mockReturnValue({
       mtime: new Date('2024-01-01'),
-    } as any)
-    mockFs.readdirSync.mockReturnValue([])
+    } as fs.Stats)
+    mockFs.readdirSync.mockReturnValue([] as fs.Dirent[])
     mockFs.createWriteStream.mockReturnValue({
-      on: jest.fn((event: string, handler: any) => {
-        if (event === 'close') setTimeout(() => handler(), 0)
+      on: jest.fn((event: string, handler: () => void) => {
+        if (event === 'close') {
+          Promise.resolve()
+            .then(() => {
+              handler()
+            })
+            .catch(() => {
+              // ignore error
+            })
+        }
+        return mockFs.createWriteStream('test')
       }),
-    } as any)
+    } as unknown as ReturnType<typeof fs.createWriteStream>)
 
     // Mock execSync
-    mockExecSync.mockImplementation(() => Buffer.from('') as any)
+    mockExecSync.mockImplementation((() => Buffer.from('')) as any)
 
     // Mock yauzl
-    mockYauzl.open.mockImplementation(
-      (_path: string, options: any, callback?: any) => {
-        if (typeof options === 'function') {
-          callback = options
-        }
-        if (callback) {
-          const mockZipfile = {
-            readEntry: jest.fn(),
-            openReadStream: jest.fn((_entry: any, cb: any) => {
+    mockYauzl.open.mockImplementation(((
+      _path: string,
+      options: any,
+      callback?: any
+    ) => {
+      const cb =
+        typeof options === 'function'
+          ? options
+          : (callback ?? (() => undefined))
+      if (callback || typeof options === 'function') {
+        const mockZipfile = {
+          readEntry: jest.fn(),
+          openReadStream: jest.fn(
+            (
+              _entry: yauzl.Entry,
+              cb: (
+                err: Error | null,
+                stream: NodeJS.ReadableStream | null
+              ) => void
+            ) => {
               cb(null, {
                 pipe: jest.fn(),
                 on: jest.fn(),
-              })
-            }),
-            on: jest.fn((event: string, handler: any) => {
-              if (event === 'end') {
-                setTimeout(handler, 0)
-              }
-            }),
-            close: jest.fn(), // Add close method to mock
-          }
-          callback(null, mockZipfile)
-        }
+              } as unknown as NodeJS.ReadableStream)
+            }
+          ),
+          on: jest.fn((event: string, handler: () => void) => {
+            if (event === 'end') {
+              Promise.resolve()
+                .then(() => {
+                  handler()
+                })
+                .catch(() => {
+                  // ignore error
+                })
+            }
+          }),
+          close: jest.fn(),
+        } as unknown as yauzl.ZipFile
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        cb(null, mockZipfile as unknown as yauzl.ZipFile)
       }
-    )
+    }) as any)
 
     vpmConverter = new VpmConverter()
   })
@@ -273,16 +300,20 @@ describe('VpmConverter', () => {
         close: jest.fn(),
       }
 
-      mockYauzl.open.mockImplementation(
-        (_path: string, options: any, callback?: any) => {
-          if (typeof options === 'function') {
-            callback = options
-          }
-          if (callback) {
-            callback(null, mockZipfile as any)
-          }
+      mockYauzl.open.mockImplementation(((
+        _path: string,
+        options: any,
+        callback?: any
+      ) => {
+        const cb =
+          typeof options === 'function'
+            ? options
+            : (callback ?? (() => undefined))
+        if (callback || typeof options === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          cb(null, mockZipfile as unknown as yauzl.ZipFile)
         }
-      )
+      }) as any)
 
       // Simulate entries with Japanese filenames
       const entries = [
@@ -299,63 +330,88 @@ describe('VpmConverter', () => {
       ]
 
       let entryIndex = 0
-      ;(mockZipfile.on as jest.Mock).mockImplementation((...args: any[]) => {
-        const [event, handler] = args
-        if (event === 'entry' && entryIndex < entries.length) {
-          // Simulate entry events
-          setTimeout(() => {
-            handler(entries[entryIndex])
-            entryIndex++
-            if (entryIndex < entries.length) {
-              mockZipfile.readEntry()
-            }
-          }, 0)
-        } else if (event === 'end') {
-          // Simulate end event
-          setTimeout(() => handler(), 10)
+      ;(mockZipfile.on as jest.Mock).mockImplementation(
+        (...args: unknown[]) => {
+          const [event, handler] = args as [string, (entry?: unknown) => void]
+          if (event === 'entry' && entryIndex < entries.length) {
+            // Simulate entry events
+            Promise.resolve()
+              .then(() => {
+                handler(entries[entryIndex])
+                entryIndex++
+                if (entryIndex < entries.length) {
+                  mockZipfile.readEntry()
+                }
+              })
+              .catch(() => {
+                // ignore error
+              })
+          } else if (event === 'end') {
+            // Simulate end event
+            Promise.resolve()
+              .then(() => {
+                handler()
+              })
+              .catch(() => {
+                // ignore error
+              })
+          }
         }
-      })
+      )
 
       mockZipfile.readEntry.mockImplementation(() => {
         // Trigger next entry
       })
 
-      mockZipfile.openReadStream.mockImplementation(
-        (_entry: any, callback: any) => {
-          const mockStream = {
-            pipe: jest.fn().mockReturnThis(),
-            on: jest.fn(),
+      mockZipfile.openReadStream.mockImplementation((...args: unknown[]) => {
+        const [, callback] = args as [
+          yauzl.Entry,
+          (err: Error | null, stream: NodeJS.ReadableStream | null) => void,
+        ]
+        const mockStream = {
+          pipe: jest.fn().mockReturnThis(),
+          on: jest.fn(),
+        }
+        callback(null, mockStream as unknown as NodeJS.ReadableStream)
+      })
+
+      // Mock iconv decode
+      mockIconv.decode.mockImplementation(
+        (buffer: Buffer, encoding: string): string => {
+          const str = buffer.toString('binary')
+          if (encoding === 'utf8') {
+            return 'テスト.unitypackage'
+          } else if (encoding === 'sjis') {
+            return '日本語ファイル.unitypackage'
           }
-          callback(null, mockStream as any)
+          return str
         }
       )
 
-      // Mock iconv decode
-      mockIconv.decode.mockImplementation((buffer, encoding) => {
-        const str = buffer.toString('binary')
-        if (encoding === 'utf8') {
-          return 'テスト.unitypackage'
-        } else if (encoding === 'sjis') {
-          return '日本語ファイル.unitypackage'
-        }
-        return str
-      })
-
       // Mock write stream
       const mockWriteStream = {
-        on: jest.fn((event: string, handler: any) => {
+        on: jest.fn((event: string, handler: () => void) => {
           if (event === 'close') {
-            setTimeout(handler, 0)
+            Promise.resolve()
+              .then(() => {
+                handler()
+              })
+              .catch(() => {
+                // ignore error
+              })
           }
+          return mockWriteStream
         }),
       }
-      mockFs.createWriteStream.mockReturnValue(mockWriteStream as any)
+      mockFs.createWriteStream.mockReturnValue(
+        mockWriteStream as unknown as ReturnType<typeof fs.createWriteStream>
+      )
 
       // Mock finding unity packages after extraction
       mockFs.readdirSync.mockReturnValue([
         'テスト.unitypackage',
         '日本語ファイル.unitypackage',
-      ] as any)
+      ] as unknown as fs.Dirent[])
 
       await vpmConverter.convertBoothItemsToVpm(products)
 
@@ -393,24 +449,30 @@ describe('VpmConverter', () => {
         .mockReturnValueOnce(false) // extracted directory doesn't exist
 
       // Mock yauzl.open to fail
-      mockYauzl.open.mockImplementation(
-        (_path: string, options: any, callback?: any) => {
-          if (typeof options === 'function') {
-            callback = options
-          }
-          if (callback) {
-            callback(new Error('Invalid ZIP file'), null as any)
-          }
+      mockYauzl.open.mockImplementation((...args: unknown[]) => {
+        const [, options, callback] = args as [
+          string,
+          yauzl.Options | ((err: Error | null, zipfile: yauzl.ZipFile) => void),
+          ((err: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
+        ]
+        const cb: (err: Error | null, zipfile: yauzl.ZipFile) => void =
+          typeof options === 'function'
+            ? options
+            : (callback ?? (() => undefined))
+        if (callback || typeof options === 'function') {
+          cb(new Error('Invalid ZIP file'), {} as yauzl.ZipFile)
         }
-      )
+      })
 
       // Mock successful shell unzip fallback
-      mockExecSync.mockImplementation(() => Buffer.from('') as any)
+      mockExecSync.mockImplementation((() => Buffer.from('')) as any)
 
       // Mock finding unity packages after fallback extraction
       mockFs.readdirSync
-        .mockReturnValueOnce([] as any) // First call in findUnityPackageFiles
-        .mockReturnValueOnce(['extracted.unitypackage'] as any) // After fallback
+        .mockReturnValueOnce([] as fs.Dirent[]) // First call in findUnityPackageFiles
+        .mockReturnValueOnce([
+          'extracted.unitypackage',
+        ] as unknown as fs.Dirent[]) // After fallback
 
       await vpmConverter.convertBoothItemsToVpm(products)
 
@@ -457,16 +519,20 @@ describe('VpmConverter', () => {
         close: jest.fn(),
       }
 
-      mockYauzl.open.mockImplementation(
-        (_path: string, options: any, callback?: any) => {
-          if (typeof options === 'function') {
-            callback = options
-          }
-          if (callback) {
-            callback(null, mockZipfile as any)
-          }
+      mockYauzl.open.mockImplementation(((
+        _path: string,
+        options: any,
+        callback?: any
+      ) => {
+        const cb =
+          typeof options === 'function'
+            ? options
+            : (callback ?? (() => undefined))
+        if (callback || typeof options === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          cb(null, mockZipfile as unknown as yauzl.ZipFile)
         }
-      )
+      }) as any)
 
       // Test various encodings
       const testCases = [
@@ -477,23 +543,33 @@ describe('VpmConverter', () => {
       ]
 
       // Mock iconv decode to handle different encodings
-      mockIconv.decode.mockImplementation((buffer, encoding) => {
-        const testCase = testCases.find((tc) => tc.encoding === encoding)
-        if (testCase) {
-          return testCase.encoded
+      mockIconv.decode.mockImplementation(
+        (buffer: Buffer, encoding: string): string => {
+          const testCase = testCases.find((tc) => tc.encoding === encoding)
+          if (testCase) {
+            return testCase.encoded
+          }
+          return buffer.toString()
         }
-        return buffer.toString()
-      })
+      )
 
       // Simulate directory entry
-      ;(mockZipfile.on as jest.Mock).mockImplementation((...args: any[]) => {
-        const [event, handler] = args
-        if (event === 'entry') {
-          handler({ fileName: 'test/' })
-        } else if (event === 'end') {
-          setTimeout(() => handler(), 0)
+      ;(mockZipfile.on as jest.Mock).mockImplementation(
+        (...args: unknown[]) => {
+          const [event, handler] = args as [string, (entry?: unknown) => void]
+          if (event === 'entry') {
+            handler({ fileName: 'test/' })
+          } else if (event === 'end') {
+            Promise.resolve()
+              .then(() => {
+                handler()
+              })
+              .catch(() => {
+                // ignore error
+              })
+          }
         }
-      })
+      )
 
       await vpmConverter.convertBoothItemsToVpm(products)
 
