@@ -62,6 +62,10 @@ export class Environment {
       value: process.env.VPM_CREATE_FALLBACK_PACKAGES ?? 'false',
       type: 'boolean',
     },
+    VPM_FORCE_REBUILD: {
+      value: process.env.VPM_FORCE_REBUILD ?? 'false',
+      type: 'boolean',
+    },
     FREE_ITEMS_PATH: {
       value: process.env.FREE_ITEMS_PATH ?? 'data/free-items.json',
       type: 'file',

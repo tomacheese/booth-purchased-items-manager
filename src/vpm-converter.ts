@@ -44,6 +44,7 @@ export interface VpmRepositoryManifest {
 export class VpmConverter {
   private logger = Logger.configure('VpmConverter')
   private repositoryDir: string
+  private readonly CONVERTER_VERSION = '1.0.0' // VPMコンバーターのバージョン
 
   constructor() {
     this.repositoryDir = Environment.getPath('VPM_REPOSITORY_DIR')
@@ -59,6 +60,9 @@ export class VpmConverter {
     }
 
     this.logger.info('Starting VPM conversion for Booth items')
+
+    // リポジトリの構成変更をチェックし、必要に応じて再構築
+    this.checkAndRebuildRepository()
 
     const vpmRepository = this.loadOrCreateRepository()
     let hasUpdates = false
@@ -205,7 +209,11 @@ export class VpmConverter {
       }
 
       // 一時的なディレクトリでパッケージを作成
-      const tempDir = path.join(this.repositoryDir, '.temp', `${packageName}-${version}`)
+      const tempDir = path.join(
+        this.repositoryDir,
+        '.temp',
+        `${packageName}-${version}`
+      )
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true })
       }
@@ -769,7 +777,7 @@ export class VpmConverter {
       if (tempDirFiles.length === 0) {
         throw new Error(`tempDir is empty: ${tempDir}`)
       }
-      
+
       execSync(`cd "${tempDir}" && zip -r -q "${targetZipPath}" .`, {
         stdio: 'inherit',
       })
@@ -869,7 +877,9 @@ export class VpmConverter {
           )
         } else {
           this.logger.error(`Skipping fallback package creation for ${zipPath}`)
-          throw new Error(`No UnityPackage found in ${zipPath} and fallback packages are disabled`)
+          throw new Error(
+            `No UnityPackage found in ${zipPath} and fallback packages are disabled`
+          )
         }
       }
     } finally {
@@ -2022,5 +2032,174 @@ export class VpmConverter {
       }
       return escapeMap[match] ?? match
     })
+  }
+
+  /**
+   * リポジトリの構成変更をチェックし、必要に応じて再構築する
+   */
+  private checkAndRebuildRepository(): void {
+    const metadataPath = path.join(this.repositoryDir, '.metadata.json')
+
+    // 現在のリポジトリメタデータを取得
+    const currentMetadata = this.getCurrentRepositoryMetadata()
+
+    // 既存のメタデータを読み込み
+    let existingMetadata: any = null
+    if (fs.existsSync(metadataPath)) {
+      try {
+        existingMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
+      } catch (error) {
+        this.logger.warn(`Failed to read metadata: ${String(error)}`)
+      }
+    }
+
+    // メタデータの比較
+    const needsRebuild = this.shouldRebuildRepository(
+      existingMetadata,
+      currentMetadata
+    )
+
+    if (needsRebuild) {
+      this.logger.info('Repository structure change detected, rebuilding...')
+      this.backupAndRebuildRepository()
+    } else {
+      this.logger.info('Repository structure is up to date')
+    }
+
+    // メタデータを更新
+    fs.writeFileSync(metadataPath, JSON.stringify(currentMetadata, null, 2))
+  }
+
+  /**
+   * 現在のリポジトリメタデータを取得
+   */
+  private getCurrentRepositoryMetadata(): {
+    converterVersion: string
+    generatedAt: string
+    nodeVersion: string
+    vpmEnabled: boolean
+    fallbackPackagesEnabled: boolean
+    configHash: string
+  } {
+    return {
+      converterVersion: this.CONVERTER_VERSION,
+      generatedAt: new Date().toISOString(),
+      nodeVersion: process.version,
+      vpmEnabled: Environment.getBoolean('VPM_ENABLED'),
+      fallbackPackagesEnabled: Environment.getBoolean(
+        'VPM_CREATE_FALLBACK_PACKAGES'
+      ),
+      configHash: this.calculateConfigHash(),
+    }
+  }
+
+  /**
+   * 設定のハッシュを計算（重要な設定項目の変更を検出）
+   */
+  private calculateConfigHash(): string {
+    const configData = {
+      VPM_ENABLED: Environment.getBoolean('VPM_ENABLED'),
+      VPM_CREATE_FALLBACK_PACKAGES: Environment.getBoolean(
+        'VPM_CREATE_FALLBACK_PACKAGES'
+      ),
+      VPM_REPOSITORY_DIR: Environment.getPath('VPM_REPOSITORY_DIR'),
+      CONVERTER_VERSION: this.CONVERTER_VERSION,
+    }
+
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify(configData))
+      .digest('hex')
+  }
+
+  /**
+   * リポジトリの再構築が必要かチェック
+   */
+  private shouldRebuildRepository(
+    existingMetadata: {
+      converterVersion?: string
+      configHash?: string
+      generatedAt?: string
+    } | null,
+    currentMetadata: {
+      converterVersion: string
+      configHash: string
+      generatedAt: string
+    }
+  ): boolean {
+    if (!existingMetadata) {
+      this.logger.info('No existing metadata found, repository will be created')
+      return false // 新規作成なので再構築は不要
+    }
+
+    // コンバーターバージョンが変更された場合
+    if (
+      existingMetadata.converterVersion !== currentMetadata.converterVersion
+    ) {
+      this.logger.info(
+        `Converter version changed: ${existingMetadata.converterVersion} -> ${currentMetadata.converterVersion}`
+      )
+      return true
+    }
+
+    // 設定ハッシュが変更された場合
+    if (existingMetadata.configHash !== currentMetadata.configHash) {
+      this.logger.info('Configuration hash changed, rebuild required')
+      return true
+    }
+
+    // 強制再構築が指定されている場合
+    if (Environment.getBoolean('VPM_FORCE_REBUILD')) {
+      this.logger.info('Force rebuild requested via VPM_FORCE_REBUILD')
+      return true
+    }
+
+    // 長期間更新されていない場合（30日以上）
+    if (existingMetadata.generatedAt) {
+      const lastGenerated = new Date(existingMetadata.generatedAt)
+      const daysSinceLastGeneration =
+        (Date.now() - lastGenerated.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceLastGeneration > 30) {
+        this.logger.info(
+          `Repository is old (${daysSinceLastGeneration.toFixed(1)} days), rebuild recommended`
+        )
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * リポジトリをバックアップして再構築
+   */
+  private backupAndRebuildRepository(): void {
+    // 既存のリポジトリをバックアップ
+    if (fs.existsSync(this.repositoryDir)) {
+      const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-')
+      const backupDir = `${this.repositoryDir}.backup-${timestamp}`
+
+      this.logger.info(`Backing up existing repository to: ${backupDir}`)
+      try {
+        execSync(`cp -r "${this.repositoryDir}" "${backupDir}"`, {
+          stdio: 'inherit',
+        })
+        this.logger.info('Backup completed successfully')
+      } catch (error) {
+        this.logger.error(`Backup failed: ${String(error)}`)
+        throw new Error('Failed to backup existing repository')
+      }
+    }
+
+    // 既存のリポジトリを削除
+    if (fs.existsSync(this.repositoryDir)) {
+      this.logger.info('Removing existing repository')
+      fs.rmSync(this.repositoryDir, { recursive: true, force: true })
+    }
+
+    // 新しいリポジトリディレクトリを作成
+    fs.mkdirSync(this.repositoryDir, { recursive: true })
+
+    this.logger.info('Repository rebuild completed')
   }
 }
