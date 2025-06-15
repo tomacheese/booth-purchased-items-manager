@@ -598,7 +598,7 @@ describe('Main Functions', () => {
   describe('fetchFreeItems', () => {
     beforeEach(() => {
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_URLS') return ''
+        if (key === 'WISHLIST_IDS') return ''
         return ''
       })
     })
@@ -781,8 +781,7 @@ describe('Main Functions', () => {
     test('should fetch free items from wishlist', async () => {
       mockFs.existsSync.mockReturnValue(false)
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_URLS')
-          return 'https://booth.pm/wish_list_names/test123'
+        if (key === 'WISHLIST_IDS') return 'test123'
         return ''
       })
 
@@ -889,8 +888,8 @@ describe('Main Functions', () => {
     test('should handle multiple wishlist URLs', async () => {
       mockFs.existsSync.mockReturnValue(false)
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_URLS') {
-          return 'https://booth.pm/wish_list_names/list1,https://booth.pm/wish_list_names/list2'
+        if (key === 'WISHLIST_IDS') {
+          return 'list1,list2'
         }
         return ''
       })

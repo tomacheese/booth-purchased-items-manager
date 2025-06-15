@@ -62,8 +62,8 @@ export class Environment {
       value: process.env.FREE_ITEMS_PATH ?? 'data/free-items.json',
       type: 'file',
     },
-    WISHLIST_URLS: {
-      value: process.env.WISHLIST_URLS ?? '',
+    WISHLIST_IDS: {
+      value: process.env.WISHLIST_IDS ?? '',
       type: 'string',
     },
   } as const

@@ -507,36 +507,23 @@ describe('BoothParser', () => {
     const mockJson = {
       items: [
         {
-          product: {
-            id: 11_111,
-            name: 'Product 1',
-            url: 'https://booth.pm/ja/items/11111',
-            images: [
-              {
-                original: 'https://example.com/thumb1.jpg',
-                resized: 'https://example.com/thumb1_resized.jpg',
-              },
-            ],
-            shop: {
-              name: 'Shop 1',
-              url: 'https://shop1.booth.pm/',
-            },
+          id: 11_111,
+          name: 'Product 1',
+          url: 'https://booth.pm/ja/items/11111',
+          thumbnail_image_urls: ['https://example.com/thumb1.jpg'],
+          shop: {
+            name: 'Shop 1',
+            url: 'https://shop1.booth.pm/',
           },
         },
         {
-          product: {
-            id: 22_222,
-            name: 'Product 2',
-            url: 'https://booth.pm/ja/items/22222',
-            images: [
-              {
-                original: 'https://example.com/thumb2.jpg',
-              },
-            ],
-            shop: {
-              name: 'Shop 2',
-              url: 'https://shop2.booth.pm/',
-            },
+          id: 22_222,
+          name: 'Product 2',
+          url: 'https://booth.pm/ja/items/22222',
+          thumbnail_image_urls: ['https://example.com/thumb2.jpg'],
+          shop: {
+            name: 'Shop 2',
+            url: 'https://shop2.booth.pm/',
           },
         },
       ],

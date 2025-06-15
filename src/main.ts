@@ -201,19 +201,15 @@ export async function fetchFreeItems(
   }
 
   // 欲しいものリストから無料アイテムを取得
-  const wishlistUrls = Environment.getValue('WISHLIST_URLS')
-  if (wishlistUrls) {
+  const wishlistIds = Environment.getValue('WISHLIST_IDS')
+  if (wishlistIds) {
     logger.info('Fetching free items from wishlists...')
-    const wishlistIds = wishlistUrls
+    const wishlistIdList = wishlistIds
       .split(',')
-      .map((url) => {
-        // URLからIDを抽出
-        const match = /wish_list_names\/([^/]+)/.exec(url)
-        return match ? match[1] : url.trim()
-      })
+      .map((id) => id.trim())
       .filter(Boolean)
 
-    for (const wishlistId of wishlistIds) {
+    for (const wishlistId of wishlistIdList) {
       logger.info(`Fetching wishlist: ${wishlistId}`)
       const wishlistFreeItems = await fetchWishlistFreeItems(
         boothRequest,

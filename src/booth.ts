@@ -199,7 +199,7 @@ export class BoothRequest {
    * @returns 欲しいものリストのレスポンス
    */
   async getPublicWishlistJson(wishlistId: string, pageNumber: number) {
-    const url = `https://accounts.booth.pm/wish_list_name_items.json?page=${pageNumber}&wish_list_name_code=${wishlistId}`
+    const url = `https://api.booth.pm/frontend/wish_list_names/${wishlistId}/items.json?page=${pageNumber}`
     const response = await axios.get(url, {
       headers: {
         Cookie: this.getCookieString(),
@@ -352,24 +352,19 @@ export class BoothParser {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     for (const item of data.items) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (!item.product) continue
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const product = item.product
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      const productId = product.id?.toString()
+      const productId = item.id?.toString()
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const productName = product.name
+      const productName = item.name
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-      const productURL = product.url || `https://booth.pm/ja/items/${productId}`
+      const productURL = item.url || `https://booth.pm/ja/items/${productId}`
       const thumbnailURL =
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-        product.images?.[0]?.original || product.images?.[0]?.resized || ''
+        item.thumbnail_image_urls?.[0] || ''
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-      const shopName = product.shop?.name || 'Unknown Shop'
+      const shopName = item.shop?.name || 'Unknown Shop'
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-      const shopURL = product.shop?.url || ''
+      const shopURL = item.shop?.url || ''
 
       if (productId && productName) {
         products.push({
