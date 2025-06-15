@@ -475,28 +475,6 @@ export class VpmConverter {
     // 前後のアンダースコアやドットを除去
     cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
 
-    // 意味のない部分を除去
-    const meaninglessParts = [
-      'Materials',
-      'Material',
-      'Texture',
-      'Tex',
-      'Full',
-      'FullSet',
-      'Set',
-      'FullSet',
-      'for',
-      'For',
-      'Ver',
-      'Version',
-    ]
-    for (const part of meaninglessParts) {
-      cleanName = cleanName.replaceAll(new RegExp(`\\b${part}\\b`, 'gi'), '')
-    }
-
-    // 再度前後のアンダースコアやドットを除去
-    cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
-
     // 空の場合やファイル全体が商品名のみの場合
     if (!cleanName || cleanName.length === 0) {
       // 特殊なケースの識別
