@@ -577,4 +577,132 @@ describe('VpmConverter', () => {
       expect(mockIconv.decode).toHaveBeenCalledWith(expect.any(Buffer), 'utf8')
     })
   })
+
+  describe('Content-based package identification', () => {
+    test('should identify texture-material packages', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '6981641',
+          productName: 'ときめきルームウェア',
+          productURL: 'https://booth.pm/items/6981641',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'なまり・ゆりかご',
+          shopURL: 'https://namari-yurikago.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName:
+                'ときめきルームウェア_Texture_Material.unitypackage.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/texture-material.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      // Mock the analyzeZipContent method to return texture-material
+      const spy = jest.spyOn(vpmConverter as any, 'analyzeZipContent')
+      spy.mockResolvedValue('texture-material')
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create package with texture-material identifier
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'com.booth.namari-yurikago.6981641.texture-material'
+        ),
+        { recursive: true }
+      )
+
+      spy.mockRestore()
+    })
+
+    test('should identify full packages with mixed content', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '6981641',
+          productName: 'ときめきルームウェア',
+          productURL: 'https://booth.pm/items/6981641',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'なまり・ゆりかご',
+          shopURL: 'https://namari-yurikago.booth.pm/',
+          items: [
+            {
+              itemId: '2',
+              itemName: 'ときめきルームウェア_Full_Ver01.zip',
+              downloadURL: 'https://example.com/download/2',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/full-package.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      // Mock the analyzeZipContent method to return full
+      const spy = jest.spyOn(vpmConverter as any, 'analyzeZipContent')
+      spy.mockResolvedValue('full')
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create package with 'full' identifier
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.namari-yurikago.6981641.full'),
+        { recursive: true }
+      )
+
+      spy.mockRestore()
+    })
+
+    test('should fallback to filename-based identification when content analysis fails', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'test.unitypackage', // Not a ZIP file
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/test.unitypackage') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // UnityPackage file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should use filename-based identification (no identifier in this case)
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345'),
+        { recursive: true }
+      )
+    })
+  })
 })

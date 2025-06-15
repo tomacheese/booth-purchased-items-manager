@@ -144,8 +144,11 @@ export class VpmConverter {
     existingRepository: VpmRepositoryManifest
   ): Promise<VpmPackageManifest | null> {
     try {
-      // ファイル識別子を抽出
-      const fileIdentifier = this.extractFileIdentifier(item.itemName)
+      // ZIP内容を分析してファイル識別子を抽出
+      const fileIdentifier = await this.extractFileIdentifierFromContent(
+        packagePath,
+        item.itemName
+      )
 
       // UnityPackageの基本情報を取得（ファイル識別子付き）
       const packageName = this.generatePackageName(product, fileIdentifier)
@@ -240,6 +243,140 @@ export class VpmConverter {
       return `${basePackageName}.${fileIdentifier}`
     }
     return basePackageName
+  }
+
+  /**
+   * ZIP内容を分析してファイル識別子を抽出する
+   */
+  private async extractFileIdentifierFromContent(
+    packagePath: string,
+    originalFilename: string
+  ): Promise<string> {
+    // ZIP ファイルの場合は内容を分析
+    if (packagePath.toLowerCase().endsWith('.zip')) {
+      try {
+        const contentIdentifier = await this.analyzeZipContent(packagePath)
+        if (contentIdentifier) {
+          this.logger.debug(
+            `Content-based identifier for ${originalFilename}: ${contentIdentifier}`
+          )
+          return contentIdentifier
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to analyze ZIP content for ${packagePath}: ${String(error)}`
+        )
+      }
+    }
+
+    // フォールバック: ファイル名ベースの識別子を使用
+    return this.extractFileIdentifier(originalFilename)
+  }
+
+  /**
+   * ZIP内容を分析してコンテンツタイプを特定する
+   */
+  private async analyzeZipContent(zipPath: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+        if (err) {
+          resolve(null)
+          return
+        }
+
+        const fileNames: string[] = []
+        let totalEntries = 0
+
+        zipfile.readEntry()
+
+        zipfile.on('entry', (entry: yauzl.Entry) => {
+          const fileName = this.decodeFilename(entry.fileName).toLowerCase()
+          fileNames.push(fileName)
+          totalEntries++
+
+          // エントリー数が多すぎる場合は早期終了
+          if (totalEntries > 100) {
+            zipfile.close()
+            resolve(this.determineContentType(fileNames))
+            return
+          }
+
+          zipfile.readEntry()
+        })
+
+        zipfile.on('end', () => {
+          resolve(this.determineContentType(fileNames))
+        })
+
+        zipfile.on('error', () => {
+          resolve(null)
+        })
+      })
+    })
+  }
+
+  /**
+   * ファイル名リストからコンテンツタイプを判定する
+   */
+  private determineContentType(fileNames: string[]): string | null {
+    const fileCount = fileNames.length
+
+    // マテリアル・テクスチャ関連のファイルをカウント
+    const materialFiles = fileNames.filter(
+      (name) =>
+        name.includes('material') ||
+        name.includes('texture') ||
+        name.includes('tex') ||
+        name.includes('.mat') ||
+        name.includes('.png') ||
+        name.includes('.jpg') ||
+        name.includes('.tga') ||
+        name.includes('.exr')
+    ).length
+
+    // スクリプト・プレハブ関連のファイルをカウント
+    const codeFiles = fileNames.filter(
+      (name) =>
+        name.includes('.cs') ||
+        name.includes('.js') ||
+        name.includes('.prefab') ||
+        name.includes('.asset') ||
+        name.includes('.controller') ||
+        name.includes('.anim')
+    ).length
+
+    // UnityPackageファイルをカウント
+    const unityPackageFiles = fileNames.filter((name) =>
+      name.includes('.unitypackage')
+    ).length
+
+    this.logger.debug(
+      `Content analysis: ${fileCount} files, ${materialFiles} material/texture, ${codeFiles} code/prefab, ${unityPackageFiles} unitypackage`
+    )
+
+    // 判定ロジック
+    if (materialFiles > 0 && codeFiles === 0 && fileCount < 50) {
+      // マテリアル・テクスチャファイルが多く、コードファイルがない場合
+      return 'texture-material'
+    }
+
+    if (codeFiles > 0 && materialFiles === 0) {
+      // コードファイルが多く、マテリアルファイルがない場合
+      return 'scripts'
+    }
+
+    if (unityPackageFiles > 1) {
+      // 複数のUnityPackageファイルが含まれている場合
+      return 'multi-package'
+    }
+
+    if (fileCount > 100 || (materialFiles > 0 && codeFiles > 0)) {
+      // ファイル数が多いか、マテリアルとコードの両方が含まれている場合はフル版
+      return 'full'
+    }
+
+    // デフォルトでは null を返してファイル名ベースの識別子を使用
+    return null
   }
 
   /**
