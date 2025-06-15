@@ -62,6 +62,10 @@ export class Environment {
       value: process.env.FREE_ITEMS_PATH ?? 'data/free-items.json',
       type: 'file',
     },
+    WISHLIST_IDS: {
+      value: process.env.WISHLIST_IDS ?? '',
+      type: 'string',
+    },
   } as const
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function

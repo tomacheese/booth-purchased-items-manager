@@ -193,6 +193,22 @@ export class BoothRequest {
   }
 
   /**
+   * 指定ページ番号の公開欲しいものリストをJSONで取得する
+   * @param wishlistId 欲しいものリストID
+   * @param pageNumber ページ番号
+   * @returns 欲しいものリストのレスポンス
+   */
+  async getPublicWishlistJson(wishlistId: string, pageNumber: number) {
+    const url = `https://api.booth.pm/frontend/wish_list_names/${wishlistId}/items.json?page=${pageNumber}`
+    const response = await axios.get(url, {
+      headers: {
+        Cookie: this.getCookieString(),
+      },
+    })
+    return response
+  }
+
+  /**
    * 保持しているクッキー情報をCookieヘッダー用文字列に変換する（内部利用）
    * @returns Cookieヘッダー用文字列
    */
@@ -319,6 +335,51 @@ export class BoothParser {
       }
     }
     return boothIds
+  }
+
+  /**
+   * 欲しいものリストのJSONレスポンスから商品情報リストを抽出する
+   * @param data JSONレスポンスデータ
+   * @returns 商品情報配列
+   */
+  parseWishlistJson(data: any): BoothProduct[] {
+    const products: BoothProduct[] = []
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!data || !Array.isArray(data.items)) {
+      return products
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    for (const item of data.items) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      const productId = item.id?.toString()
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const productName = item.name
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
+      const productURL = item.url || `https://booth.pm/ja/items/${productId}`
+      const thumbnailURL =
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
+        item.thumbnail_image_urls?.[0] || ''
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
+      const shopName = item.shop?.name || 'Unknown Shop'
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
+      const shopURL = item.shop?.url || ''
+
+      if (productId && productName) {
+        products.push({
+          productId,
+          productName,
+          productURL,
+          thumbnailURL,
+          shopName,
+          shopURL,
+          items: [], // 欲しいものリストでは商品詳細は取得できない
+        })
+      }
+    }
+
+    return products
   }
 
   /**

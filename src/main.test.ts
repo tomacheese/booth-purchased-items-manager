@@ -80,6 +80,14 @@ describe('Main Functions', () => {
     boothRequest = new BoothRequest()
     jest.spyOn(boothRequest, 'login').mockResolvedValue()
     jest.spyOn(boothRequest, 'checkLogin').mockResolvedValue(true)
+    jest.spyOn(boothRequest, 'getPublicWishlistJson').mockResolvedValue({
+      status: 200,
+      data: { items: [] },
+    } as any)
+    jest.spyOn(boothRequest, 'getProductPage').mockResolvedValue({
+      status: 200,
+      data: '<html>Mock Product Page</html>',
+    } as any)
 
     boothParser = new BoothParser()
     pageCache = new PageCache()
@@ -588,17 +596,20 @@ describe('Main Functions', () => {
   })
 
   describe('fetchFreeItems', () => {
+    beforeEach(() => {
+      mockEnvironment.getValue.mockImplementation((key: string) => {
+        if (key === 'WISHLIST_IDS') return ''
+        return ''
+      })
+    })
+
     // 無料アイテムの設定ファイルが存在しない場合のテスト
-    test('should create empty free items file if not exists', async () => {
+    test('should handle no free items file and no wishlist', async () => {
       mockFs.existsSync.mockReturnValue(false)
 
       const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
 
       expect(result).toEqual([])
-      expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        expect.any(String),
-        JSON.stringify({ freeItems: [] }, null, 2)
-      )
     })
 
     // 無料アイテムの設定ファイルが空の場合のテスト
@@ -764,6 +775,208 @@ describe('Main Functions', () => {
       const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
 
       expect(result).toEqual([])
+    })
+
+    // 欲しいものリストから無料アイテムを取得するテスト
+    test('should fetch free items from wishlist', async () => {
+      mockFs.existsSync.mockReturnValue(false)
+      mockEnvironment.getValue.mockImplementation((key: string) => {
+        if (key === 'WISHLIST_IDS') return 'test123'
+        return ''
+      })
+
+      // Mock wishlist JSON response for page 1 with items
+      const mockWishlistJson1 = {
+        items: [
+          {
+            product: {
+              id: 88_888,
+              name: 'Wishlist Item 1',
+              url: 'https://booth.pm/ja/items/88888',
+              images: [{ original: 'https://example.com/thumb.jpg' }],
+              shop: { name: 'Shop', url: 'https://shop.booth.pm/' },
+            },
+          },
+        ],
+      }
+
+      // Mock wishlist JSON response for page 2 with no items (to end pagination)
+      const mockWishlistJson2 = {
+        items: [],
+      }
+
+      // Mock product page HTML for free item check
+      const mockProductHtml = `
+        <html>
+          <head>
+            <meta property="og:image" content="https://example.com/thumb.jpg">
+          </head>
+          <body>
+            <h1 class="text-text-default">Wishlist Item 1</h1>
+            <a href="https://booth.pm/ja/shop/12345">
+              <span>Shop</span>
+            </a>
+            <div>
+              <a href="https://booth.pm/downloadables/77777"></a>
+            </div>
+          </body>
+        </html>
+      `
+
+      jest
+        .spyOn(boothRequest, 'getPublicWishlistJson')
+        .mockResolvedValueOnce({
+          status: 200,
+          data: mockWishlistJson1,
+        } as any)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: mockWishlistJson2,
+        } as any)
+
+      jest
+        .spyOn(pageCache, 'loadOrFetch')
+        .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
+          if (type === 'wishlist') {
+            return fetchFunc()
+          }
+          return mockProductHtml
+        })
+
+      jest
+        .spyOn(boothParser, 'parseWishlistJson')
+        .mockReturnValueOnce([
+          {
+            productId: '88888',
+            productName: 'Wishlist Item 1',
+            productURL: 'https://booth.pm/ja/items/88888',
+            thumbnailURL: 'https://example.com/thumb.jpg',
+            shopName: 'Shop',
+            shopURL: 'https://shop.booth.pm/',
+            items: [],
+          },
+        ])
+        .mockReturnValueOnce([])
+
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
+        productId: '88888',
+        productName: 'Wishlist Item 1',
+        productURL: 'https://booth.pm/ja/items/88888',
+        thumbnailURL: 'https://example.com/thumb.jpg',
+        shopName: 'Shop',
+        shopURL: 'https://shop.booth.pm/',
+        items: [
+          {
+            itemId: '77777',
+            itemName: 'free_item.zip',
+            downloadURL: 'https://booth.pm/downloadables/77777',
+          },
+        ],
+      })
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({
+        productId: '88888',
+        productName: 'Wishlist Item 1',
+        type: 'free',
+      })
+    })
+
+    // 複数の欲しいものリストURLを処理するテスト
+    test('should handle multiple wishlist URLs', async () => {
+      mockFs.existsSync.mockReturnValue(false)
+      mockEnvironment.getValue.mockImplementation((key: string) => {
+        if (key === 'WISHLIST_IDS') {
+          return 'list1,list2'
+        }
+        return ''
+      })
+
+      // Mock wishlist responses
+      const mockWishlistJson1 = {
+        items: [
+          {
+            product: {
+              id: 11_111,
+              name: 'Item 1',
+              url: 'https://booth.pm/ja/items/11111',
+            },
+          },
+        ],
+      }
+      const mockWishlistJson2 = {
+        items: [
+          {
+            product: {
+              id: 22_222,
+              name: 'Item 2',
+              url: 'https://booth.pm/ja/items/22222',
+            },
+          },
+        ],
+      }
+      const mockEmptyWishlist = {
+        items: [],
+      }
+
+      jest
+        .spyOn(boothRequest, 'getPublicWishlistJson')
+        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson1 } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson2 } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
+
+      jest
+        .spyOn(pageCache, 'loadOrFetch')
+        .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
+          if (type === 'wishlist') {
+            return fetchFunc()
+          }
+          return '<html>Mock Product Page</html>'
+        })
+
+      jest
+        .spyOn(boothParser, 'parseWishlistJson')
+        .mockReturnValueOnce([
+          {
+            productId: '11111',
+            productName: 'Item 1',
+            productURL: 'https://booth.pm/ja/items/11111',
+            thumbnailURL: '',
+            shopName: '',
+            shopURL: '',
+            items: [],
+          },
+        ])
+        .mockReturnValueOnce([])
+        .mockReturnValueOnce([
+          {
+            productId: '22222',
+            productName: 'Item 2',
+            productURL: 'https://booth.pm/ja/items/22222',
+            thumbnailURL: '',
+            shopName: '',
+            shopURL: '',
+            items: [],
+          },
+        ])
+        .mockReturnValueOnce([])
+
+      jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
+        productId: '',
+        productName: '',
+        productURL: '',
+        thumbnailURL: '',
+        shopName: '',
+        shopURL: '',
+        items: [{ itemId: '1', itemName: 'free.zip', downloadURL: '' }],
+      })
+
+      const result = await fetchFreeItems(boothRequest, boothParser, pageCache)
+
+      expect(result).toHaveLength(2)
     })
   })
 })
