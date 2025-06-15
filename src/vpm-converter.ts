@@ -5,8 +5,8 @@ import { execSync } from 'node:child_process'
 import { Environment } from './environment'
 import { Logger } from '@book000/node-utils'
 import type { BoothProduct, BoothProductItem } from './booth'
-import yauzl from 'yauzl'
-import iconv from 'iconv-lite'
+import * as yauzl from 'yauzl'
+import * as iconv from 'iconv-lite'
 
 export interface VpmPackageManifest {
   name: string
