@@ -46,6 +46,10 @@ export class VpmConverter {
   private repositoryDir: string
   private readonly CONVERTER_VERSION = '1.0.0' // VPMコンバーターのバージョン
 
+  // Content analysis constants
+  private static readonly MAX_EARLY_TERMINATION_ENTRIES = 100
+  private static readonly MAX_TEXTURE_ONLY_FILES = 50
+
   constructor() {
     this.repositoryDir = Environment.getPath('VPM_REPOSITORY_DIR')
   }
@@ -1380,6 +1384,7 @@ export class VpmConverter {
         })
 
         zipfile.on('error', (error: Error) => {
+          zipfile.close()
           reject(new Error(`ZIP extraction error: ${error.message}`))
         })
       })
