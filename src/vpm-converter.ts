@@ -240,6 +240,13 @@ export class VpmConverter {
     const basePackageName = `com.booth.${shopName}.${product.productId}`
 
     if (fileIdentifier) {
+      // ショップ名と識別子が重複している場合は識別子を使用しない
+      if (fileIdentifier.toLowerCase() === shopName.toLowerCase()) {
+        this.logger.debug(
+          `File identifier '${fileIdentifier}' matches shop name '${shopName}', using base package name`
+        )
+        return basePackageName
+      }
       return `${basePackageName}.${fileIdentifier}`
     }
     return basePackageName
@@ -404,6 +411,11 @@ export class VpmConverter {
   private extractFileIdentifier(filename: string): string {
     const nameWithoutExt = path.basename(filename, path.extname(filename))
 
+    // 最初に補助的なファイル（おまけ、bonus等）を識別
+    if (this.isSupplementaryFile(nameWithoutExt)) {
+      return this.getSupplementaryIdentifier(nameWithoutExt)
+    }
+
     // まずバージョンパターンを除去
     const versionPatterns = [
       /_?v\d+\.\d+\.\d+$/i, // _v1.0.0, v1.0.0
@@ -440,9 +452,13 @@ export class VpmConverter {
       'FullSet',
       'Set',
       'FullSet',
+      'for',
+      'For',
+      'Ver',
+      'Version',
     ]
     for (const part of meaninglessParts) {
-      cleanName = cleanName.replaceAll(new RegExp(part, 'gi'), '')
+      cleanName = cleanName.replaceAll(new RegExp(`\\b${part}\\b`, 'gi'), '')
     }
 
     // 再度前後のアンダースコアやドットを除去
@@ -456,10 +472,6 @@ export class VpmConverter {
       }
       if (nameWithoutExt.toLowerCase().includes('texture')) {
         return 'textures'
-      }
-      // 補助的なファイル（おまけ、bonus等）の識別
-      if (this.isSupplementaryFile(nameWithoutExt)) {
-        return this.getSupplementaryIdentifier(nameWithoutExt)
       }
       // 単一ファイルの場合は識別子なしとする
       return ''
