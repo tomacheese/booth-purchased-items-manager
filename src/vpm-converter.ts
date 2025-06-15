@@ -367,9 +367,6 @@ export class VpmConverter {
     })
   }
 
-  // Constants for content analysis thresholds
-  private static readonly MAX_TEXTURE_ONLY_FILES = 50
-  private static readonly MAX_EARLY_TERMINATION_ENTRIES = 100
 
   /**
    * ファイル名リストからコンテンツタイプを判定する
