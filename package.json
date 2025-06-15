@@ -12,6 +12,7 @@
     "@jest/globals": "29.7.0",
     "@types/jest": "29.5.14",
     "@types/node": "22.15.15",
+    "@types/yauzl": "^2.10.3",
     "axios": "1.9.0",
     "eslint": "9.28.0",
     "eslint-config-standard": "17.1.0",
@@ -73,6 +74,8 @@
     ]
   },
   "dependencies": {
-    "jsonc-parser": "3.3.1"
+    "iconv-lite": "^0.6.3",
+    "jsonc-parser": "3.3.1",
+    "yauzl": "^3.2.0"
   }
 }

@@ -437,7 +437,7 @@ async function main() {
 
   // UnityPackageアイテムをVPM形式に変換
   const vpmConverter = new VpmConverter()
-  vpmConverter.convertBoothItemsToVpm(products)
+  await vpmConverter.convertBoothItemsToVpm(products)
 
   // VPMパッケージ一覧のHTMLページを生成
   vpmConverter.generatePackageListHtml()

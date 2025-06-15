@@ -40,16 +40,16 @@ describe('VpmConverter', () => {
     vpmConverter = new VpmConverter()
   })
 
-  test('should be disabled when VPM_ENABLED is false', () => {
+  test('should be disabled when VPM_ENABLED is false', async () => {
     mockEnvironment.getBoolean.mockReturnValue(false)
 
     const products: BoothProduct[] = []
-    vpmConverter.convertBoothItemsToVpm(products)
+    await vpmConverter.convertBoothItemsToVpm(products)
 
     expect(mockFs.writeFileSync).not.toHaveBeenCalled()
   })
 
-  test('should skip products without UnityPackage items', () => {
+  test('should skip products without UnityPackage items', async () => {
     const products: BoothProduct[] = [
       {
         productId: '12345',
@@ -68,13 +68,13 @@ describe('VpmConverter', () => {
       },
     ]
 
-    vpmConverter.convertBoothItemsToVpm(products)
+    await vpmConverter.convertBoothItemsToVpm(products)
 
     // Should not create any VPM packages
     expect(mockFs.copyFileSync).not.toHaveBeenCalled()
   })
 
-  test('should convert UnityPackage items to VPM format', () => {
+  test('should convert UnityPackage items to VPM format', async () => {
     mockEnvironment.getPath
       .mockReturnValueOnce(mockRepositoryDir) // constructor
       .mockReturnValueOnce('/path/to/item.unitypackage') // getItemPath
@@ -102,7 +102,7 @@ describe('VpmConverter', () => {
       },
     ]
 
-    vpmConverter.convertBoothItemsToVpm(products)
+    await vpmConverter.convertBoothItemsToVpm(products)
 
     // Should create directory structure
     expect(mockFs.mkdirSync).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('VpmConverter', () => {
     expect(mockFs.writeFileSync).toHaveBeenCalledTimes(3)
   })
 
-  test('should handle special characters in product names', () => {
+  test('should handle special characters in product names', async () => {
     const products: BoothProduct[] = [
       {
         productId: '12345',
@@ -145,7 +145,7 @@ describe('VpmConverter', () => {
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(false)
 
-    vpmConverter.convertBoothItemsToVpm(products)
+    await vpmConverter.convertBoothItemsToVpm(products)
 
     // Package name should be sanitized
     expect(mockFs.mkdirSync).toHaveBeenCalledWith(
