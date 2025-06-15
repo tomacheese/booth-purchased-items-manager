@@ -295,7 +295,7 @@ export class VpmConverter {
           totalEntries++
 
           // エントリー数が多すぎる場合は早期終了
-          if (totalEntries > 100) {
+          if (totalEntries > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES) {
             zipfile.close()
             resolve(this.determineContentType(fileNames))
             return
@@ -309,11 +309,16 @@ export class VpmConverter {
         })
 
         zipfile.on('error', () => {
+          zipfile.close()
           resolve(null)
         })
       })
     })
   }
+
+  // Constants for content analysis thresholds
+  private static readonly MAX_TEXTURE_ONLY_FILES = 50
+  private static readonly MAX_EARLY_TERMINATION_ENTRIES = 100
 
   /**
    * ファイル名リストからコンテンツタイプを判定する
@@ -326,28 +331,24 @@ export class VpmConverter {
       (name) =>
         name.includes('material') ||
         name.includes('texture') ||
-        name.includes('tex') ||
-        name.includes('.mat') ||
-        name.includes('.png') ||
-        name.includes('.jpg') ||
-        name.includes('.tga') ||
-        name.includes('.exr')
+        /\.tex$/i.test(name) ||
+        /\.mat$/i.test(name) ||
+        /\.(png|jpg|jpeg|tga|exr|dds|hdr)$/i.test(name)
     ).length
 
     // スクリプト・プレハブ関連のファイルをカウント
     const codeFiles = fileNames.filter(
       (name) =>
-        name.includes('.cs') ||
-        name.includes('.js') ||
-        name.includes('.prefab') ||
-        name.includes('.asset') ||
-        name.includes('.controller') ||
-        name.includes('.anim')
+        /\.(cs|js|dll)$/i.test(name) ||
+        /\.prefab$/i.test(name) ||
+        /\.asset$/i.test(name) ||
+        /\.controller$/i.test(name) ||
+        /\.anim$/i.test(name)
     ).length
 
     // UnityPackageファイルをカウント
     const unityPackageFiles = fileNames.filter((name) =>
-      name.includes('.unitypackage')
+      /\.unitypackage$/i.test(name)
     ).length
 
     this.logger.debug(
@@ -355,7 +356,11 @@ export class VpmConverter {
     )
 
     // 判定ロジック
-    if (materialFiles > 0 && codeFiles === 0 && fileCount < 50) {
+    if (
+      materialFiles > 0 &&
+      codeFiles === 0 &&
+      fileCount < VpmConverter.MAX_TEXTURE_ONLY_FILES
+    ) {
       // マテリアル・テクスチャファイルが多く、コードファイルがない場合
       return 'texture-material'
     }
@@ -370,7 +375,10 @@ export class VpmConverter {
       return 'multi-package'
     }
 
-    if (fileCount > 100 || (materialFiles > 0 && codeFiles > 0)) {
+    if (
+      fileCount > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES ||
+      (materialFiles > 0 && codeFiles > 0)
+    ) {
       // ファイル数が多いか、マテリアルとコードの両方が含まれている場合はフル版
       return 'full'
     }
