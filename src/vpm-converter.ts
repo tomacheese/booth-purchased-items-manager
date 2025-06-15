@@ -1074,4 +1074,476 @@ export class VpmConverter {
       packages,
     }
   }
+
+  /**
+   * VPMパッケージ一覧のHTMLページを生成する
+   */
+  generatePackageListHtml(): void {
+    if (!Environment.getBoolean('VPM_ENABLED')) {
+      this.logger.info('VPM is disabled, skipping HTML generation')
+      return
+    }
+
+    const repository = this.loadOrCreateRepository()
+    const packages = Object.entries(repository.packages)
+      .map(([name, pkg]) => {
+        const versions = Object.entries(pkg.versions)
+        const latestVersion = versions.sort(([, a], [, b]) =>
+          b.version.localeCompare(a.version, undefined, { numeric: true })
+        )[0]
+
+        return {
+          name,
+          displayName: latestVersion[1].displayName,
+          description: latestVersion[1].description,
+          author: latestVersion[1].author?.name ?? 'Unknown',
+          latestVersion: latestVersion[1].version,
+          totalVersions: versions.length,
+          unity: latestVersion[1].unity,
+          versions: versions
+            .map(([version, manifest]) => ({
+              version,
+              url: manifest.url,
+              description: manifest.description,
+            }))
+            .sort((a, b) =>
+              b.version.localeCompare(a.version, undefined, { numeric: true })
+            ),
+        }
+      })
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+
+    const html = this.generateHtmlTemplate(repository, packages)
+    const htmlPath = path.join(this.repositoryDir, 'index.html')
+    fs.writeFileSync(htmlPath, html)
+
+    this.logger.info(`Generated VPM package list HTML: ${htmlPath}`)
+  }
+
+  /**
+   * HTMLテンプレートを生成する
+   */
+  private generateHtmlTemplate(
+    repository: VpmRepositoryManifest,
+    packages: {
+      name: string
+      displayName: string
+      description: string
+      author: string
+      latestVersion: string
+      totalVersions: number
+      unity: string
+      versions: {
+        version: string
+        url: string
+        description: string
+      }[]
+    }[]
+  ): string {
+    const totalPackages = packages.length
+    const totalVersions = packages.reduce(
+      (sum, pkg) => sum + pkg.totalVersions,
+      0
+    )
+    const lastUpdated = new Date().toLocaleString('ja-JP')
+
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${repository.name}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .search-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            border-color: #3498db;
+        }
+        
+        .package-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        .package-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 25px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .package-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .package-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .package-name {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #666;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .package-description {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        
+        .package-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            color: #666;
+        }
+        
+        .meta-label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        
+        .version-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        .version-latest {
+            font-weight: bold;
+            color: #27ae60;
+            margin-bottom: 5px;
+        }
+        
+        .version-count {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        .version-list {
+            margin-top: 10px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .version-list.expanded {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .version-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 0.85em;
+        }
+        
+        .version-item:last-child {
+            border-bottom: none;
+        }
+        
+        .version-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .version-link:hover {
+            text-decoration: underline;
+        }
+        
+        .expand-btn {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            font-size: 0.85em;
+            padding: 5px 0;
+            margin-top: 5px;
+        }
+        
+        .expand-btn:hover {
+            text-decoration: underline;
+        }
+        
+        .no-results {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 1.2em;
+            padding: 40px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .package-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${repository.name}</h1>
+            <p>Booth購入済みアイテムのVPMパッケージリポジトリ</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number">${totalPackages}</div>
+                    <div class="stat-label">パッケージ</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">${totalVersions}</div>
+                    <div class="stat-label">バージョン</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="search-box">
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="パッケージを検索..." 
+                id="searchInput"
+            >
+        </div>
+        
+        <div class="package-grid" id="packageGrid">
+            ${packages
+              .map(
+                (pkg) => `
+                <div class="package-card" data-search="${pkg.displayName.toLowerCase()} ${pkg.name.toLowerCase()} ${pkg.author.toLowerCase()} ${pkg.description.toLowerCase()}">
+                    <div class="package-title">${this.escapeHtml(pkg.displayName)}</div>
+                    <div class="package-name">${pkg.name}</div>
+                    <div class="package-description">${this.escapeHtml(pkg.description)}</div>
+                    
+                    <div class="package-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">作者:</span> ${this.escapeHtml(pkg.author)}
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Unity:</span> ${pkg.unity}
+                        </div>
+                    </div>
+                    
+                    <div class="version-info">
+                        <div class="version-latest">最新版: v${pkg.latestVersion}</div>
+                        <div class="version-count">${pkg.totalVersions}個のバージョンが利用可能</div>
+                        ${
+                          pkg.totalVersions > 1
+                            ? `
+                            <button class="expand-btn" onclick="toggleVersions(this)">
+                                すべてのバージョンを表示
+                            </button>
+                            <div class="version-list">
+                                ${pkg.versions
+                                  .map(
+                                    (version) => `
+                                    <div class="version-item">
+                                        <a href="${version.url}" class="version-link">v${version.version}</a>
+                                    </div>
+                                `
+                                  )
+                                  .join('')}
+                            </div>
+                        `
+                            : ''
+                        }
+                    </div>
+                </div>
+            `
+              )
+              .join('')}
+        </div>
+        
+        <div class="no-results" id="noResults" style="display: none;">
+            検索結果が見つかりませんでした
+        </div>
+        
+        <div class="footer">
+            最終更新: ${lastUpdated}<br>
+            Generated by Booth Purchased Items Manager
+        </div>
+    </div>
+    
+    <script>
+        // 検索機能
+        const searchInput = document.getElementById('searchInput');
+        const packageGrid = document.getElementById('packageGrid');
+        const noResults = document.getElementById('noResults');
+        
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.package-card');
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const searchData = card.dataset.search;
+                const isVisible = searchData.includes(searchTerm);
+                card.style.display = isVisible ? 'block' : 'none';
+                if (isVisible) visibleCount++;
+            });
+            
+            if (visibleCount === 0) {
+                packageGrid.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                packageGrid.style.display = 'grid';
+                noResults.style.display = 'none';
+            }
+        });
+        
+        // バージョン展開機能
+        function toggleVersions(button) {
+            const versionList = button.nextElementSibling;
+            const isExpanded = versionList.classList.contains('expanded');
+            
+            if (isExpanded) {
+                versionList.classList.remove('expanded');
+                button.textContent = 'すべてのバージョンを表示';
+            } else {
+                versionList.classList.add('expanded');
+                button.textContent = 'バージョンを隠す';
+            }
+        }
+    </script>
+</body>
+</html>`
+  }
+
+  /**
+   * HTMLエスケープ
+   */
+  private escapeHtml(text: string): string {
+    return text.replaceAll(/[&<>"']/g, (match: string) => {
+      const escapeMap: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }
+      return escapeMap[match] ?? match
+    })
+  }
 }
