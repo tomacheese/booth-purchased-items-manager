@@ -501,4 +501,85 @@ describe('BoothParser', () => {
       items: [],
     })
   })
+
+  // 欲しいものリストJSONのパースをテスト
+  test('should parse wishlist JSON', () => {
+    const mockJson = {
+      items: [
+        {
+          product: {
+            id: 11_111,
+            name: 'Product 1',
+            url: 'https://booth.pm/ja/items/11111',
+            images: [
+              {
+                original: 'https://example.com/thumb1.jpg',
+                resized: 'https://example.com/thumb1_resized.jpg',
+              },
+            ],
+            shop: {
+              name: 'Shop 1',
+              url: 'https://shop1.booth.pm/',
+            },
+          },
+        },
+        {
+          product: {
+            id: 22_222,
+            name: 'Product 2',
+            url: 'https://booth.pm/ja/items/22222',
+            images: [
+              {
+                original: 'https://example.com/thumb2.jpg',
+              },
+            ],
+            shop: {
+              name: 'Shop 2',
+              url: 'https://shop2.booth.pm/',
+            },
+          },
+        },
+      ],
+    }
+
+    const result = boothParser.parseWishlistJson(mockJson)
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toMatchObject({
+      productId: '11111',
+      productName: 'Product 1',
+      productURL: 'https://booth.pm/ja/items/11111',
+      thumbnailURL: 'https://example.com/thumb1.jpg',
+      shopName: 'Shop 1',
+      shopURL: 'https://shop1.booth.pm/',
+      items: [],
+    })
+    expect(result[1]).toMatchObject({
+      productId: '22222',
+      productName: 'Product 2',
+      productURL: 'https://booth.pm/ja/items/22222',
+      thumbnailURL: 'https://example.com/thumb2.jpg',
+      shopName: 'Shop 2',
+      shopURL: 'https://shop2.booth.pm/',
+      items: [],
+    })
+  })
+
+  // 欲しいものリストJSONで商品が見つからない場合のテスト
+  test('should return empty array if no products in wishlist JSON', () => {
+    const mockJson = {
+      items: [],
+    }
+
+    const result = boothParser.parseWishlistJson(mockJson)
+    expect(result).toEqual([])
+  })
+
+  // 欲しいものリストJSONが不正な場合のテスト
+  test('should handle invalid wishlist JSON', () => {
+    expect(boothParser.parseWishlistJson(null)).toEqual([])
+    expect(boothParser.parseWishlistJson({})).toEqual([])
+    expect(boothParser.parseWishlistJson({ items: null })).toEqual([])
+    expect(boothParser.parseWishlistJson({ items: 'not array' })).toEqual([])
+  })
 })

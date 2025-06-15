@@ -85,6 +85,91 @@ export async function fetchPurchased(
 }
 
 /**
+ * 欲しいものリストから無料アイテムのIDを取得する
+ * @param boothRequest BoothRequestインスタンス
+ * @param boothParser BoothParserインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @param wishlistId 欲しいものリストID
+ * @returns 無料アイテムのID配列
+ */
+async function fetchWishlistFreeItems(
+  boothRequest: BoothRequest,
+  boothParser: BoothParser,
+  pageCache: PageCache,
+  wishlistId: string
+): Promise<string[]> {
+  const logger = Logger.configure('fetchWishlistFreeItems')
+  const freeItemIds: string[] = []
+
+  let pageNumber = 1
+  while (true) {
+    const jsonData = await pageCache.loadOrFetch(
+      'wishlist',
+      `${wishlistId}_${pageNumber}`,
+      1,
+      async () => {
+        const response = await boothRequest.getPublicWishlistJson(
+          wishlistId,
+          pageNumber
+        )
+        if (response.status !== 200) {
+          logger.warn(
+            `Failed to fetch wishlist page ${wishlistId} page ${pageNumber}: ${response.status}`
+          )
+          return null
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return response.data
+      }
+    )
+
+    if (!jsonData) {
+      break
+    }
+
+    // 欲しいものリストのJSONから商品を取得
+    const products = boothParser.parseWishlistJson(jsonData)
+    if (products.length === 0) {
+      break
+    }
+
+    // 各商品が無料かどうかチェック
+    for (const product of products) {
+      const productHtml = await pageCache.loadOrFetch(
+        'product',
+        product.productId,
+        1,
+        async () => {
+          const response = await boothRequest.getProductPage(product.productId)
+          if (response.status !== 200) {
+            return ''
+          }
+          return response.data
+        }
+      )
+
+      if (productHtml) {
+        const freeProduct = boothParser.parseFreeItemPage(
+          productHtml,
+          product.productId,
+          product.productURL
+        )
+        if (freeProduct && freeProduct.items.length > 0) {
+          logger.info(
+            `Found free item in wishlist: ${product.productName} [${product.productId}]`
+          )
+          freeItemIds.push(product.productId)
+        }
+      }
+    }
+
+    pageNumber++
+  }
+
+  return freeItemIds
+}
+
+/**
  * 無料配布商品を取得する
  * @param boothRequest BoothRequestインスタンス
  * @param boothParser BoothParserインスタンス
@@ -97,30 +182,54 @@ export async function fetchFreeItems(
   pageCache: PageCache
 ) {
   const logger = Logger.configure('fetchFreeItems')
-  const freeItemsPath = Environment.getPath('FREE_ITEMS_PATH')
-  if (!fs.existsSync(freeItemsPath)) {
-    logger.info(
-      'Free items configuration file not found, creating empty file...'
-    )
-    fs.writeFileSync(freeItemsPath, JSON.stringify({ freeItems: [] }, null, 2))
-    return []
-  }
-
-  const freeItemsConfig = parseJsonc(
-    fs.readFileSync(freeItemsPath, 'utf8')
-  ) as {
-    freeItems: string[]
-  }
   const freeProducts: (BoothProduct & { type: string })[] = []
+  const allFreeItemIds = new Set<string>()
 
-  for (const productId of freeItemsConfig.freeItems) {
-    if (!productId || typeof productId !== 'string') {
-      logger.warn(
-        `Invalid free item configuration: ${JSON.stringify(productId)}`
-      )
-      continue
+  // 既存のfree-items.jsonから読み込み
+  const freeItemsPath = Environment.getPath('FREE_ITEMS_PATH')
+  if (fs.existsSync(freeItemsPath)) {
+    const freeItemsConfig = parseJsonc(
+      fs.readFileSync(freeItemsPath, 'utf8')
+    ) as {
+      freeItems: string[]
     }
+    for (const productId of freeItemsConfig.freeItems) {
+      if (productId && typeof productId === 'string') {
+        allFreeItemIds.add(productId)
+      }
+    }
+  }
 
+  // 欲しいものリストから無料アイテムを取得
+  const wishlistUrls = Environment.getValue('WISHLIST_URLS')
+  if (wishlistUrls) {
+    logger.info('Fetching free items from wishlists...')
+    const wishlistIds = wishlistUrls
+      .split(',')
+      .map((url) => {
+        // URLからIDを抽出
+        const match = /wish_list_names\/([^/]+)/.exec(url)
+        return match ? match[1] : url.trim()
+      })
+      .filter(Boolean)
+
+    for (const wishlistId of wishlistIds) {
+      logger.info(`Fetching wishlist: ${wishlistId}`)
+      const wishlistFreeItems = await fetchWishlistFreeItems(
+        boothRequest,
+        boothParser,
+        pageCache,
+        wishlistId
+      )
+      for (const productId of wishlistFreeItems) {
+        allFreeItemIds.add(productId)
+      }
+    }
+  }
+
+  // 全ての無料アイテムを取得
+  logger.info(`Total free items to fetch: ${allFreeItemIds.size}`)
+  for (const productId of allFreeItemIds) {
     logger.info(`Fetching free item: [${productId}]`)
 
     const html = await pageCache.loadOrFetch(
