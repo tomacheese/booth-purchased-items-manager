@@ -367,7 +367,6 @@ export class VpmConverter {
     })
   }
 
-
   /**
    * ファイル名リストからコンテンツタイプを判定する
    */
