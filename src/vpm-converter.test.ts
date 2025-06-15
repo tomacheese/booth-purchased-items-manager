@@ -53,7 +53,7 @@ describe('VpmConverter', () => {
       // Everything else: false
       return false
     })
-    
+
     mockFs.mkdirSync.mockImplementation(() => '')
     mockFs.writeFileSync.mockImplementation(() => {
       // empty implementation
