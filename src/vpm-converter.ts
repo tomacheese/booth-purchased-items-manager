@@ -457,6 +457,10 @@ export class VpmConverter {
       if (nameWithoutExt.toLowerCase().includes('texture')) {
         return 'textures'
       }
+      // 補助的なファイル（おまけ、bonus等）の識別
+      if (this.isSupplementaryFile(nameWithoutExt)) {
+        return this.getSupplementaryIdentifier(nameWithoutExt)
+      }
       // 単一ファイルの場合は識別子なしとする
       return ''
     }
@@ -521,6 +525,69 @@ export class VpmConverter {
     }
 
     return null
+  }
+
+  /**
+   * 補助的なファイル（おまけ、bonus等）かどうかを判定する
+   */
+  private isSupplementaryFile(filename: string): boolean {
+    const lowerFilename = filename.toLowerCase()
+    const supplementaryKeywords = [
+      'おまけ',
+      'bonus',
+      'extra',
+      'additional',
+      'supplement',
+      'readme',
+      'manual',
+      'guide',
+      'instruction',
+      'sample',
+      'demo',
+      'example',
+      'test',
+      'trial',
+    ]
+
+    return supplementaryKeywords.some((keyword) =>
+      lowerFilename.includes(keyword)
+    )
+  }
+
+  /**
+   * 補助的なファイルの識別子を取得する
+   */
+  private getSupplementaryIdentifier(filename: string): string {
+    const lowerFilename = filename.toLowerCase()
+
+    if (lowerFilename.includes('おまけ')) {
+      return 'bonus'
+    }
+    if (lowerFilename.includes('bonus')) {
+      return 'bonus'
+    }
+    if (lowerFilename.includes('extra')) {
+      return 'extra'
+    }
+    if (lowerFilename.includes('additional')) {
+      return 'additional'
+    }
+    if (lowerFilename.includes('readme')) {
+      return 'readme'
+    }
+    if (lowerFilename.includes('manual') || lowerFilename.includes('guide')) {
+      return 'manual'
+    }
+    if (
+      lowerFilename.includes('sample') ||
+      lowerFilename.includes('demo') ||
+      lowerFilename.includes('example')
+    ) {
+      return 'sample'
+    }
+
+    // デフォルトは 'extra'
+    return 'extra'
   }
 
   /**

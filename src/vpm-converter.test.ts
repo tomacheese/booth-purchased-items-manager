@@ -1041,4 +1041,104 @@ describe('VpmConverter', () => {
       expect(mockFs.copyFileSync).toHaveBeenCalled()
     })
   })
+
+  describe('Supplementary file identification', () => {
+    test('should identify bonus files correctly', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '6283171',
+          productName: 'GestureSound',
+          productURL: 'https://booth.pm/items/6283171',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'meeenu',
+          shopURL: 'https://meeenu.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'おまけ.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/bonus.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create package with bonus identifier
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.meeenu.6283171.bonus'),
+        { recursive: true }
+      )
+    })
+
+    test('should identify various supplementary file types', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'README.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+            {
+              itemId: '2',
+              itemName: 'Manual_Guide.zip',
+              downloadURL: 'https://example.com/download/2',
+            },
+            {
+              itemId: '3',
+              itemName: 'Sample_Demo.zip',
+              downloadURL: 'https://example.com/download/3',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/readme.zip') // getItemPath for first item
+        .mockReturnValueOnce('/path/to/manual.zip') // getItemPath for second item
+        .mockReturnValueOnce('/path/to/sample.zip') // getItemPath for third item
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // first ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+        .mockReturnValueOnce(true) // second ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+        .mockReturnValueOnce(true) // third ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create packages with appropriate identifiers
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.readme'),
+        { recursive: true }
+      )
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.manual'),
+        { recursive: true }
+      )
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.sample'),
+        { recursive: true }
+      )
+    })
+  })
 })
