@@ -5,6 +5,8 @@ import { execSync } from 'node:child_process'
 import { Environment } from './environment'
 import { Logger } from '@book000/node-utils'
 import type { BoothProduct, BoothProductItem } from './booth'
+import * as yauzl from 'yauzl'
+import * as iconv from 'iconv-lite'
 
 export interface VpmPackageManifest {
   name: string
@@ -50,7 +52,7 @@ export class VpmConverter {
   /**
    * Boothで購入したUnityPackageをVPM形式に変換する
    */
-  convertBoothItemsToVpm(products: BoothProduct[]): void {
+  async convertBoothItemsToVpm(products: BoothProduct[]): Promise<void> {
     if (!Environment.getBoolean('VPM_ENABLED')) {
       this.logger.info('VPM conversion is disabled')
       return
@@ -97,11 +99,11 @@ export class VpmConverter {
 
           // ZIP圧縮されたUnityPackageの場合は展開し、全UnityPackageを取得
           const actualPackagePaths =
-            this.extractAllUnityPackagesFromZip(packagePath)
+            await this.extractAllUnityPackagesFromZip(packagePath)
 
           // 各UnityPackageを個別に処理
           for (const actualPackagePath of actualPackagePaths) {
-            const vpmPackage = this.convertUnityPackageToVpm(
+            const vpmPackage = await this.convertUnityPackageToVpm(
               actualPackagePath,
               product,
               item,
@@ -135,12 +137,12 @@ export class VpmConverter {
   /**
    * UnityPackageファイルをVPM形式に変換する
    */
-  private convertUnityPackageToVpm(
+  private async convertUnityPackageToVpm(
     packagePath: string,
     product: BoothProduct,
     item: BoothProductItem,
     existingRepository: VpmRepositoryManifest
-  ): VpmPackageManifest | null {
+  ): Promise<VpmPackageManifest | null> {
     try {
       // ファイル識別子を抽出
       const fileIdentifier = this.extractFileIdentifier(item.itemName)
@@ -203,7 +205,11 @@ export class VpmConverter {
         legacyFolders: this.generateLegacyFolders(packageName),
       }
 
-      this.createVpmPackageFromUnityPackage(packagePath, zipPath, manifest)
+      await this.createVpmPackageFromUnityPackage(
+        packagePath,
+        zipPath,
+        manifest
+      )
 
       const manifestPath = path.join(vpmPackageDir, 'package.json')
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
@@ -437,11 +443,11 @@ export class VpmConverter {
   /**
    * UnityPackageからVPMパッケージを作成する
    */
-  private createVpmPackageFromUnityPackage(
+  private async createVpmPackageFromUnityPackage(
     sourcePath: string,
     targetZipPath: string,
     manifest: VpmPackageManifest
-  ): void {
+  ): Promise<void> {
     const tempDir = path.join(path.dirname(sourcePath), 'temp_vpm_package')
 
     try {
@@ -456,7 +462,7 @@ export class VpmConverter {
         this.extractAndConvertUnityPackage(sourcePath, tempDir, manifest)
       } else {
         // ZIP内のUnityPackageを処理
-        this.extractAndConvertFromZip(sourcePath, tempDir, manifest)
+        await this.extractAndConvertFromZip(sourcePath, tempDir, manifest)
       }
 
       // VPMパッケージのZIPを作成
@@ -511,20 +517,28 @@ export class VpmConverter {
   /**
    * ZIP内のUnityPackageを処理
    */
-  private extractAndConvertFromZip(
+  private async extractAndConvertFromZip(
     zipPath: string,
     targetDir: string,
     manifest: VpmPackageManifest
-  ): void {
+  ): Promise<void> {
     const extractDir = path.join(targetDir, 'zip_extracted')
 
     try {
       fs.mkdirSync(extractDir, { recursive: true })
 
-      // ZIPを展開
-      execSync(`unzip -q -o "${zipPath}" -d "${extractDir}"`, {
-        stdio: 'inherit',
-      })
+      // yauzlライブラリを使用してZIPを展開
+      try {
+        await this.extractZipWithYauzl(zipPath, extractDir)
+      } catch (error) {
+        this.logger.warn(
+          `yauzl extraction failed, trying fallback: ${String(error)}`
+        )
+        // フォールバック: 従来のunzipコマンド
+        execSync(`unzip -q -o "${zipPath}" -d "${extractDir}"`, {
+          stdio: 'inherit',
+        })
+      }
 
       // UnityPackageファイルを検索
       const unityPackageFiles = this.findUnityPackageFiles(extractDir)
@@ -914,7 +928,9 @@ export class VpmConverter {
   /**
    * ZIP圧縮されたUnityPackageを展開し、全UnityPackageファイルのパスを返す
    */
-  private extractAllUnityPackagesFromZip(packagePath: string): string[] {
+  private async extractAllUnityPackagesFromZip(
+    packagePath: string
+  ): Promise<string[]> {
     // ZIPファイルの場合（.unitypackage.zip や通常の.zip）
     if (packagePath.toLowerCase().endsWith('.zip')) {
       const extractDir = path.join(
@@ -941,10 +957,8 @@ export class VpmConverter {
           fs.mkdirSync(extractDir, { recursive: true })
         }
 
-        // unzipコマンドを使用してZIPファイルを展開
-        execSync(`unzip -q -o "${packagePath}" -d "${extractDir}"`, {
-          stdio: 'inherit',
-        })
+        // yauzlライブラリを使用してZIPファイルを展開
+        await this.extractZipWithYauzl(packagePath, extractDir)
 
         // 展開されたUnityPackageファイルを探す
         const files = fs.readdirSync(extractDir)
@@ -972,12 +986,158 @@ export class VpmConverter {
           `Failed to extract ZIP file: ${packagePath}`,
           error instanceof Error ? error : new Error(String(error))
         )
-        return [packagePath]
+        // フォールバック: 従来のunzipコマンドを試行
+        return this.fallbackUnzipExtraction(packagePath, extractDir)
       }
     }
 
     // ZIP圧縮されていない場合は元のパスをそのまま返す
     return [packagePath]
+  }
+
+  /**
+   * yauzlライブラリを使用してZIPファイルを展開する
+   */
+  private async extractZipWithYauzl(
+    zipPath: string,
+    extractDir: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+        if (err) {
+          reject(new Error(`Failed to open ZIP file: ${err.message}`))
+          return
+        }
+
+        zipfile.readEntry()
+
+        zipfile.on('entry', (entry: yauzl.Entry) => {
+          const fileName = this.decodeFilename(entry.fileName)
+          const fullPath = path.join(extractDir, fileName)
+
+          this.logger.debug(
+            `Processing entry: ${entry.fileName} -> ${fileName}`
+          )
+
+          if (fileName.endsWith('/')) {
+            // ディレクトリの場合
+            fs.mkdirSync(fullPath, { recursive: true })
+            zipfile.readEntry()
+          } else {
+            // ファイルの場合
+            const fileDir = path.dirname(fullPath)
+            fs.mkdirSync(fileDir, { recursive: true })
+
+            zipfile.openReadStream(entry, (err, readStream) => {
+              if (err) {
+                reject(new Error(`Failed to open read stream: ${err.message}`))
+                return
+              }
+
+              const writeStream = fs.createWriteStream(fullPath)
+              readStream.pipe(writeStream)
+
+              writeStream.on('close', () => {
+                zipfile.readEntry()
+              })
+
+              writeStream.on('error', (error) => {
+                reject(new Error(`Failed to write file: ${error.message}`))
+              })
+            })
+          }
+        })
+
+        zipfile.on('end', () => {
+          resolve()
+        })
+
+        zipfile.on('error', (error: Error) => {
+          reject(new Error(`ZIP extraction error: ${error.message}`))
+        })
+      })
+    })
+  }
+
+  /**
+   * ファイル名の文字化けを修正する
+   */
+  private decodeFilename(fileName: string): string {
+    try {
+      // まず、バイト配列として取得
+      const buffer = Buffer.from(fileName, 'binary')
+
+      // 複数のエンコーディングを試行
+      const encodings = ['utf8', 'sjis', 'cp932', 'euc-jp']
+
+      for (const encoding of encodings) {
+        try {
+          const decoded = iconv.decode(buffer, encoding)
+          // 有効な日本語文字が含まれているかチェック
+          if (this.containsValidJapanese(decoded)) {
+            this.logger.debug(
+              `Successfully decoded filename with ${encoding}: ${fileName} -> ${decoded}`
+            )
+            return decoded
+          }
+        } catch {
+          // このエンコーディングでは失敗
+          continue
+        }
+      }
+
+      // すべて失敗した場合は元の文字列を返す
+      this.logger.debug(
+        `Could not decode filename, using original: ${fileName}`
+      )
+      return fileName
+    } catch (error) {
+      this.logger.debug(`Error decoding filename ${fileName}: ${String(error)}`)
+      return fileName
+    }
+  }
+
+  /**
+   * 文字列に有効な日本語文字が含まれているかチェック
+   */
+  private containsValidJapanese(text: string): boolean {
+    // ひらがな、カタカナ、漢字、全角英数字のパターン
+    const japanesePattern =
+      /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/
+    return japanesePattern.test(text) && !text.includes('�') // 文字化け記号が含まれていない
+  }
+
+  /**
+   * フォールバック用のunzipコマンド抽出
+   */
+  private fallbackUnzipExtraction(
+    packagePath: string,
+    extractDir: string
+  ): string[] {
+    this.logger.warn('Falling back to unzip command')
+
+    try {
+      // unzipコマンドを使用してZIPファイルを展開
+      execSync(`unzip -q -o "${packagePath}" -d "${extractDir}"`, {
+        stdio: 'inherit',
+      })
+
+      // 展開されたUnityPackageファイルを探す
+      const unityPackageFiles = this.findUnityPackageFiles(extractDir)
+
+      if (unityPackageFiles.length === 0) {
+        this.logger.warn(`No .unitypackage file found in extracted ZIP`)
+        return [packagePath]
+      }
+
+      this.logger.info(
+        `Found ${unityPackageFiles.length} UnityPackage(s) with fallback method`
+      )
+      return unityPackageFiles
+    } catch (error) {
+      this.logger.error(`Fallback unzip also failed: ${String(error)}`)
+      return [packagePath]
+    }
   }
 
   /**
