@@ -179,17 +179,13 @@ export class VpmConverter {
         return null
       }
 
-      // VPMパッケージディレクトリを作成
+      // VPMパッケージディレクトリのパスを準備（まだ作成しない）
       const vpmPackageDir = path.join(
         this.repositoryDir,
         'packages',
         packageName,
         version
       )
-
-      if (!fs.existsSync(vpmPackageDir)) {
-        fs.mkdirSync(vpmPackageDir, { recursive: true })
-      }
 
       // UnityPackageをVPM形式に変換
       const zipPath = path.join(vpmPackageDir, `${packageName}-${version}.zip`)
@@ -208,14 +204,39 @@ export class VpmConverter {
         legacyFolders: this.generateLegacyFolders(packageName),
       }
 
-      await this.createVpmPackageFromUnityPackage(
-        packagePath,
-        zipPath,
-        manifest
-      )
+      // 一時的なディレクトリでパッケージを作成
+      const tempDir = path.join(this.repositoryDir, '.temp', `${packageName}-${version}`)
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+      fs.mkdirSync(tempDir, { recursive: true })
 
-      const manifestPath = path.join(vpmPackageDir, 'package.json')
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      const tempZipPath = path.join(tempDir, `${packageName}-${version}.zip`)
+
+      try {
+        await this.createVpmPackageFromUnityPackage(
+          packagePath,
+          tempZipPath,
+          manifest
+        )
+
+        // 成功した場合のみ、実際のディレクトリを作成してファイルを移動
+        if (!fs.existsSync(vpmPackageDir)) {
+          fs.mkdirSync(vpmPackageDir, { recursive: true })
+        }
+
+        // ZIPファイルを移動
+        fs.renameSync(tempZipPath, zipPath)
+
+        // package.jsonを作成
+        const manifestPath = path.join(vpmPackageDir, 'package.json')
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      } finally {
+        // 一時ディレクトリをクリーンアップ
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
 
       return manifest
     } catch (error) {
@@ -743,6 +764,12 @@ export class VpmConverter {
       }
 
       // VPMパッケージのZIPを作成
+      // tempDirが空でないことを確認
+      const tempDirFiles = fs.readdirSync(tempDir)
+      if (tempDirFiles.length === 0) {
+        throw new Error(`tempDir is empty: ${tempDir}`)
+      }
+      
       execSync(`cd "${tempDir}" && zip -r -q "${targetZipPath}" .`, {
         stdio: 'inherit',
       })
@@ -842,6 +869,7 @@ export class VpmConverter {
           )
         } else {
           this.logger.error(`Skipping fallback package creation for ${zipPath}`)
+          throw new Error(`No UnityPackage found in ${zipPath} and fallback packages are disabled`)
         }
       }
     } finally {
