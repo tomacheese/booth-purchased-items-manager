@@ -80,6 +80,14 @@ describe('Main Functions', () => {
     boothRequest = new BoothRequest()
     jest.spyOn(boothRequest, 'login').mockResolvedValue()
     jest.spyOn(boothRequest, 'checkLogin').mockResolvedValue(true)
+    jest.spyOn(boothRequest, 'getPublicWishlistJson').mockResolvedValue({
+      status: 200,
+      data: { items: [] },
+    } as any)
+    jest.spyOn(boothRequest, 'getProductPage').mockResolvedValue({
+      status: 200,
+      data: '<html>Mock Product Page</html>',
+    } as any)
 
     boothParser = new BoothParser()
     pageCache = new PageCache()
@@ -778,8 +786,8 @@ describe('Main Functions', () => {
         return ''
       })
 
-      // Mock wishlist JSON response
-      const mockWishlistJson = {
+      // Mock wishlist JSON response for page 1 with items
+      const mockWishlistJson1 = {
         items: [
           {
             product: {
@@ -791,6 +799,11 @@ describe('Main Functions', () => {
             },
           },
         ],
+      }
+
+      // Mock wishlist JSON response for page 2 with no items (to end pagination)
+      const mockWishlistJson2 = {
+        items: [],
       }
 
       // Mock product page HTML for free item check
@@ -811,28 +824,40 @@ describe('Main Functions', () => {
         </html>
       `
 
-      jest.spyOn(boothRequest, 'getPublicWishlistJson').mockResolvedValue({
-        status: 200,
-        data: mockWishlistJson,
-      } as any)
+      jest
+        .spyOn(boothRequest, 'getPublicWishlistJson')
+        .mockResolvedValueOnce({
+          status: 200,
+          data: mockWishlistJson1,
+        } as any)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: mockWishlistJson2,
+        } as any)
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
-        .mockResolvedValueOnce(mockWishlistJson) // wishlist response
-        .mockResolvedValueOnce(mockProductHtml) // product page for free check
-        .mockResolvedValueOnce(mockProductHtml) // product page for fetching
+        .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
+          if (type === 'wishlist') {
+            return fetchFunc()
+          }
+          return mockProductHtml
+        })
 
-      jest.spyOn(boothParser, 'parseWishlistJson').mockReturnValue([
-        {
-          productId: '88888',
-          productName: 'Wishlist Item 1',
-          productURL: 'https://booth.pm/ja/items/88888',
-          thumbnailURL: 'https://example.com/thumb.jpg',
-          shopName: 'Shop',
-          shopURL: 'https://shop.booth.pm/',
-          items: [],
-        },
-      ])
+      jest
+        .spyOn(boothParser, 'parseWishlistJson')
+        .mockReturnValueOnce([
+          {
+            productId: '88888',
+            productName: 'Wishlist Item 1',
+            productURL: 'https://booth.pm/ja/items/88888',
+            thumbnailURL: 'https://example.com/thumb.jpg',
+            shopName: 'Shop',
+            shopURL: 'https://shop.booth.pm/',
+            items: [],
+          },
+        ])
+        .mockReturnValueOnce([])
 
       jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
         productId: '88888',
@@ -893,11 +918,16 @@ describe('Main Functions', () => {
           },
         ],
       }
+      const mockEmptyWishlist = {
+        items: [],
+      }
 
       jest
         .spyOn(boothRequest, 'getPublicWishlistJson')
         .mockResolvedValueOnce({ status: 200, data: mockWishlistJson1 } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
         .mockResolvedValueOnce({ status: 200, data: mockWishlistJson2 } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
@@ -921,6 +951,7 @@ describe('Main Functions', () => {
             items: [],
           },
         ])
+        .mockReturnValueOnce([])
         .mockReturnValueOnce([
           {
             productId: '22222',
@@ -932,6 +963,7 @@ describe('Main Functions', () => {
             items: [],
           },
         ])
+        .mockReturnValueOnce([])
 
       jest.spyOn(boothParser, 'parseFreeItemPage').mockReturnValue({
         productId: '',
