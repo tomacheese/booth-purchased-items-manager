@@ -417,6 +417,12 @@ export class VpmConverter {
       cleanName = cleanName.replace(pattern, '')
     }
 
+    // プレフィックス-サフィックスパターンを検出
+    const prefixSuffixResult = this.extractPrefixSuffixIdentifier(cleanName)
+    if (prefixSuffixResult) {
+      return prefixSuffixResult
+    }
+
     // 一般的なファイル名パターンのクリーンアップ
     // 大文字で始まる単語を連続させたパターン（CamelCase商品名など）を処理
     // ただし、具体的な商品名はハードコーディングしない
@@ -479,6 +485,42 @@ export class VpmConverter {
     // 単一の部分の場合
     const identifier = parts[0].toLowerCase().replaceAll(/[^a-z0-9]/g, '')
     return identifier.slice(0, 20) || ''
+  }
+
+  /**
+   * プレフィックス-サフィックスパターンから識別子を抽出する
+   * 例: GestureSound-Mouth → mouth, ProductName-Hand → hand
+   */
+  private extractPrefixSuffixIdentifier(filename: string): string | null {
+    // ハイフンで区切られたパターンを検出
+    const hyphenPattern = /^([A-Za-z]+)-([A-Za-z]+)/
+    const hyphenMatch = hyphenPattern.exec(filename)
+    if (hyphenMatch) {
+      const [, prefix, suffix] = hyphenMatch
+      // プレフィックスが3文字以上でサフィックスが2文字以上の場合
+      if (prefix.length >= 3 && suffix.length >= 2) {
+        return suffix
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]/g, '')
+          .slice(0, 20)
+      }
+    }
+
+    // アンダースコアで区切られたパターンを検出
+    const underscorePattern = /^([A-Za-z]+)_([A-Za-z]+)/
+    const underscoreMatch = underscorePattern.exec(filename)
+    if (underscoreMatch) {
+      const [, prefix, suffix] = underscoreMatch
+      // プレフィックスが3文字以上でサフィックスが2文字以上の場合
+      if (prefix.length >= 3 && suffix.length >= 2) {
+        return suffix
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]/g, '')
+          .slice(0, 20)
+      }
+    }
+
+    return null
   }
 
   /**

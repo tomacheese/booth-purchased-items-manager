@@ -796,4 +796,146 @@ describe('VpmConverter', () => {
       )
     })
   })
+
+  describe('Prefix-suffix pattern identification', () => {
+    test('should identify different parts when prefix-suffix pattern exists', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '6283171',
+          productName: 'GestureSound',
+          productURL: 'https://booth.pm/items/6283171',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'meeenu',
+          shopURL: 'https://meeenu.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'GestureSound-Mouth_1.04.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+            {
+              itemId: '2',
+              itemName: 'GestureSound-Hand_1.04.zip',
+              downloadURL: 'https://example.com/download/2',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/mouth.zip') // getItemPath for first item
+        .mockReturnValueOnce('/path/to/hand.zip') // getItemPath for second item
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // first ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+        .mockReturnValueOnce(true) // second ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create separate packages for mouth and hand
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.meeenu.6283171.mouth'),
+        { recursive: true }
+      )
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.meeenu.6283171.hand'),
+        { recursive: true }
+      )
+    })
+
+    test('should handle underscore-separated prefix-suffix pattern', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'ProductName_Left.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+            {
+              itemId: '2',
+              itemName: 'ProductName_Right.zip',
+              downloadURL: 'https://example.com/download/2',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/left.zip') // getItemPath for first item
+        .mockReturnValueOnce('/path/to/right.zip') // getItemPath for second item
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // first ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+        .mockReturnValueOnce(true) // second ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create separate packages for left and right
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.left'),
+        { recursive: true }
+      )
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.right'),
+        { recursive: true }
+      )
+    })
+
+    test('should not apply prefix-suffix pattern for short prefix or suffix', async () => {
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'AB-C.zip', // Short prefix and suffix
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/ab-c.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should not use prefix-suffix pattern due to short parts
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345'),
+        { recursive: true }
+      )
+      // Should not contain .c suffix
+      expect(mockFs.mkdirSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('com.booth.testshop.12345.c'),
+        { recursive: true }
+      )
+    })
+  })
 })
