@@ -938,4 +938,107 @@ describe('VpmConverter', () => {
       )
     })
   })
+
+  describe('Fallback package creation control', () => {
+    test('should skip fallback packages when VPM_CREATE_FALLBACK_PACKAGES is false', async () => {
+      mockEnvironment.getBoolean.mockImplementation((key: string) => {
+        if (key === 'VPM_ENABLED') return true
+        if (key === 'VPM_CREATE_FALLBACK_PACKAGES') return false
+        return false
+      })
+
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'corrupt.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/corrupt.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // extracted directory doesn't exist
+
+      // Mock yauzl to fail
+      mockYauzl.open.mockImplementation((...args: unknown[]) => {
+        const [, options, callback] = args as [
+          string,
+          yauzl.Options | ((err: Error | null, zipfile: yauzl.ZipFile) => void),
+          ((err: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
+        ]
+        const cb: (err: Error | null, zipfile: yauzl.ZipFile) => void =
+          typeof options === 'function'
+            ? options
+            : (callback ?? (() => undefined))
+        if (callback || typeof options === 'function') {
+          cb(new Error('Corrupted ZIP'), {} as yauzl.ZipFile)
+        }
+      })
+
+      // Mock fallback unzip to also fail
+      mockExecSync.mockImplementation(() => {
+        throw new Error('unzip command failed')
+      })
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should not create any VPM packages due to fallback being disabled
+      expect(mockFs.copyFileSync).not.toHaveBeenCalled()
+    })
+
+    test('should create fallback packages when VPM_CREATE_FALLBACK_PACKAGES is true', async () => {
+      mockEnvironment.getBoolean.mockImplementation((key: string) => {
+        if (key === 'VPM_ENABLED') return true
+        if (key === 'VPM_CREATE_FALLBACK_PACKAGES') return true
+        return false
+      })
+
+      const products: BoothProduct[] = [
+        {
+          productId: '12345',
+          productName: 'Test Product',
+          productURL: 'https://booth.pm/items/12345',
+          thumbnailURL: 'https://example.com/thumb.jpg',
+          shopName: 'Test Shop',
+          shopURL: 'https://testshop.booth.pm/',
+          items: [
+            {
+              itemId: '1',
+              itemName: 'corrupt.zip',
+              downloadURL: 'https://example.com/download/1',
+            },
+          ],
+        },
+      ]
+
+      mockEnvironment.getPath
+        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce('/path/to/corrupt.zip') // getItemPath
+
+      mockFs.existsSync
+        .mockReturnValueOnce(false) // repository manifest
+        .mockReturnValueOnce(true) // ZIP file exists
+        .mockReturnValueOnce(false) // version directory doesn't exist
+
+      await vpmConverter.convertBoothItemsToVpm(products)
+
+      // Should create fallback package
+      expect(mockFs.copyFileSync).toHaveBeenCalled()
+    })
+  })
 })

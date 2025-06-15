@@ -674,8 +674,12 @@ export class VpmConverter {
         `Failed to create VPM package: ${String(error)}`,
         error instanceof Error ? error : new Error(String(error))
       )
-      // エラーの場合は簡単な構造でフォールバック
-      this.createFallbackPackage(sourcePath, targetZipPath, manifest)
+      // エラーの場合は簡単な構造でフォールバック（設定で有効な場合のみ）
+      if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+        this.createFallbackPackage(sourcePath, targetZipPath, manifest)
+      } else {
+        throw error
+      }
     } finally {
       // 一時ディレクトリを削除
       if (fs.existsSync(tempDir)) {
@@ -751,11 +755,15 @@ export class VpmConverter {
       } else {
         // UnityPackageが見つからない場合は警告
         this.logger.warn(`No UnityPackage found in ${zipPath}`)
-        this.createFallbackPackage(
-          zipPath,
-          path.join(targetDir, 'fallback.zip'),
-          manifest
-        )
+        if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+          this.createFallbackPackage(
+            zipPath,
+            path.join(targetDir, 'fallback.zip'),
+            manifest
+          )
+        } else {
+          this.logger.error(`Skipping fallback package creation for ${zipPath}`)
+        }
       }
     } finally {
       // ZIP展開用の一時フォルダを削除
@@ -992,8 +1000,12 @@ export class VpmConverter {
       this.logger.info('Created fallback package')
     } catch (error) {
       this.logger.error(`Failed to create fallback package: ${String(error)}`)
-      // 最終フォールバック
-      fs.copyFileSync(sourcePath, targetZipPath)
+      // 最終フォールバック（設定で有効な場合のみ）
+      if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+        fs.copyFileSync(sourcePath, targetZipPath)
+      } else {
+        throw error
+      }
     } finally {
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true })
