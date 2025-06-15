@@ -1088,7 +1088,7 @@ export class VpmConverter {
     const packages = Object.entries(repository.packages)
       .map(([name, pkg]) => {
         const versions = Object.entries(pkg.versions)
-        const latestVersion = versions.sort(([, a], [, b]) => 
+        const latestVersion = versions.sort(([, a], [, b]) =>
           b.version.localeCompare(a.version, undefined, { numeric: true })
         )[0]
 
@@ -1100,11 +1100,15 @@ export class VpmConverter {
           latestVersion: latestVersion[1].version,
           totalVersions: versions.length,
           unity: latestVersion[1].unity,
-          versions: versions.map(([version, manifest]) => ({
-            version,
-            url: manifest.url,
-            description: manifest.description
-          })).sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
+          versions: versions
+            .map(([version, manifest]) => ({
+              version,
+              url: manifest.url,
+              description: manifest.description,
+            }))
+            .sort((a, b) =>
+              b.version.localeCompare(a.version, undefined, { numeric: true })
+            ),
         }
       })
       .sort((a, b) => a.displayName.localeCompare(b.displayName))
@@ -1112,7 +1116,7 @@ export class VpmConverter {
     const html = this.generateHtmlTemplate(repository, packages)
     const htmlPath = path.join(this.repositoryDir, 'index.html')
     fs.writeFileSync(htmlPath, html)
-    
+
     this.logger.info(`Generated VPM package list HTML: ${htmlPath}`)
   }
 
@@ -1137,7 +1141,10 @@ export class VpmConverter {
     }[]
   ): string {
     const totalPackages = packages.length
-    const totalVersions = packages.reduce((sum, pkg) => sum + pkg.totalVersions, 0)
+    const totalVersions = packages.reduce(
+      (sum, pkg) => sum + pkg.totalVersions,
+      0
+    )
     const lastUpdated = new Date().toLocaleString('ja-JP')
 
     return `<!DOCTYPE html>
@@ -1422,7 +1429,9 @@ export class VpmConverter {
         </div>
         
         <div class="package-grid" id="packageGrid">
-            ${packages.map(pkg => `
+            ${packages
+              .map(
+                (pkg) => `
                 <div class="package-card" data-search="${pkg.displayName.toLowerCase()} ${pkg.name.toLowerCase()} ${pkg.author.toLowerCase()} ${pkg.description.toLowerCase()}">
                     <div class="package-title">${this.escapeHtml(pkg.displayName)}</div>
                     <div class="package-name">${pkg.name}</div>
@@ -1440,21 +1449,31 @@ export class VpmConverter {
                     <div class="version-info">
                         <div class="version-latest">最新版: v${pkg.latestVersion}</div>
                         <div class="version-count">${pkg.totalVersions}個のバージョンが利用可能</div>
-                        ${pkg.totalVersions > 1 ? `
+                        ${
+                          pkg.totalVersions > 1
+                            ? `
                             <button class="expand-btn" onclick="toggleVersions(this)">
                                 すべてのバージョンを表示
                             </button>
                             <div class="version-list">
-                                ${pkg.versions.map(version => `
+                                ${pkg.versions
+                                  .map(
+                                    (version) => `
                                     <div class="version-item">
                                         <a href="${version.url}" class="version-link">v${version.version}</a>
                                     </div>
-                                `).join('')}
+                                `
+                                  )
+                                  .join('')}
                             </div>
-                        ` : ''}
+                        `
+                            : ''
+                        }
                     </div>
                 </div>
-            `).join('')}
+            `
+              )
+              .join('')}
         </div>
         
         <div class="no-results" id="noResults" style="display: none;">
@@ -1522,7 +1541,7 @@ export class VpmConverter {
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
-        "'": '&#39;'
+        "'": '&#39;',
       }
       return escapeMap[match] ?? match
     })
