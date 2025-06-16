@@ -32,7 +32,7 @@ export async function fetchPurchased(
     const html = await pageCache.loadOrFetch(
       'library',
       pageNumber.toString(),
-      1,
+      null,
       async () => {
         const response = await boothRequest.getLibraryPage(pageNumber)
         if (response.status !== 200) {
@@ -56,7 +56,7 @@ export async function fetchPurchased(
     const html = await pageCache.loadOrFetch(
       'gift',
       pageNumber.toString(),
-      1,
+      null,
       async () => {
         const response = await boothRequest.getLibraryGiftsPage(pageNumber)
         if (response.status !== 200) {
