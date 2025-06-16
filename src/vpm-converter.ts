@@ -44,6 +44,11 @@ export interface VpmRepositoryManifest {
 export class VpmConverter {
   private logger = Logger.configure('VpmConverter')
   private repositoryDir: string
+  private readonly CONVERTER_VERSION = '1.0.0' // VPMコンバーターのバージョン
+
+  // Content analysis constants
+  private static readonly MAX_EARLY_TERMINATION_ENTRIES = 100
+  private static readonly MAX_TEXTURE_ONLY_FILES = 50
 
   constructor() {
     this.repositoryDir = Environment.getPath('VPM_REPOSITORY_DIR')
@@ -59,6 +64,9 @@ export class VpmConverter {
     }
 
     this.logger.info('Starting VPM conversion for Booth items')
+
+    // リポジトリの構成変更をチェックし、必要に応じて再構築
+    this.checkAndRebuildRepository()
 
     const vpmRepository = this.loadOrCreateRepository()
     let hasUpdates = false
@@ -144,8 +152,11 @@ export class VpmConverter {
     existingRepository: VpmRepositoryManifest
   ): Promise<VpmPackageManifest | null> {
     try {
-      // ファイル識別子を抽出
-      const fileIdentifier = this.extractFileIdentifier(item.itemName)
+      // ZIP内容を分析してファイル識別子を抽出
+      const fileIdentifier = await this.extractFileIdentifierFromContent(
+        packagePath,
+        item.itemName
+      )
 
       // UnityPackageの基本情報を取得（ファイル識別子付き）
       const packageName = this.generatePackageName(product, fileIdentifier)
@@ -176,17 +187,13 @@ export class VpmConverter {
         return null
       }
 
-      // VPMパッケージディレクトリを作成
+      // VPMパッケージディレクトリのパスを準備（まだ作成しない）
       const vpmPackageDir = path.join(
         this.repositoryDir,
         'packages',
         packageName,
         version
       )
-
-      if (!fs.existsSync(vpmPackageDir)) {
-        fs.mkdirSync(vpmPackageDir, { recursive: true })
-      }
 
       // UnityPackageをVPM形式に変換
       const zipPath = path.join(vpmPackageDir, `${packageName}-${version}.zip`)
@@ -205,14 +212,43 @@ export class VpmConverter {
         legacyFolders: this.generateLegacyFolders(packageName),
       }
 
-      await this.createVpmPackageFromUnityPackage(
-        packagePath,
-        zipPath,
-        manifest
+      // 一時的なディレクトリでパッケージを作成
+      const tempDir = path.join(
+        this.repositoryDir,
+        '.temp',
+        `${packageName}-${version}`
       )
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      }
+      fs.mkdirSync(tempDir, { recursive: true })
 
-      const manifestPath = path.join(vpmPackageDir, 'package.json')
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      const tempZipPath = path.join(tempDir, `${packageName}-${version}.zip`)
+
+      try {
+        await this.createVpmPackageFromUnityPackage(
+          packagePath,
+          tempZipPath,
+          manifest
+        )
+
+        // 成功した場合のみ、実際のディレクトリを作成してファイルを移動
+        if (!fs.existsSync(vpmPackageDir)) {
+          fs.mkdirSync(vpmPackageDir, { recursive: true })
+        }
+
+        // ZIPファイルを移動
+        fs.renameSync(tempZipPath, zipPath)
+
+        // package.jsonを作成
+        const manifestPath = path.join(vpmPackageDir, 'package.json')
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+      } finally {
+        // 一時ディレクトリをクリーンアップ
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
 
       return manifest
     } catch (error) {
@@ -237,9 +273,165 @@ export class VpmConverter {
     const basePackageName = `com.booth.${shopName}.${product.productId}`
 
     if (fileIdentifier) {
+      // ショップ名と識別子が重複している場合は識別子を使用しない
+      if (fileIdentifier.toLowerCase() === shopName.toLowerCase()) {
+        this.logger.debug(
+          `File identifier '${fileIdentifier}' matches shop name '${shopName}', using base package name`
+        )
+        return basePackageName
+      }
       return `${basePackageName}.${fileIdentifier}`
     }
     return basePackageName
+  }
+
+  /**
+   * ZIP内容を分析してファイル識別子を抽出する
+   */
+  private async extractFileIdentifierFromContent(
+    packagePath: string,
+    originalFilename: string
+  ): Promise<string> {
+    // まずファイル名からアバター名などの識別子を抽出
+    const filenameBasedIdentifier = this.extractFileIdentifier(originalFilename)
+
+    // アバター名が特定できた場合は、それを優先して使用
+    if (filenameBasedIdentifier && filenameBasedIdentifier.length > 0) {
+      this.logger.debug(
+        `Using filename-based identifier for ${originalFilename}: ${filenameBasedIdentifier}`
+      )
+      return filenameBasedIdentifier
+    }
+
+    // アバター名が特定できない場合のみ、ZIP内容を分析
+    if (packagePath.toLowerCase().endsWith('.zip')) {
+      try {
+        const contentIdentifier = await this.analyzeZipContent(packagePath)
+        if (contentIdentifier) {
+          this.logger.debug(
+            `Using content-based identifier for ${originalFilename}: ${contentIdentifier}`
+          )
+          return contentIdentifier
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to analyze ZIP content for ${packagePath}: ${String(error)}`
+        )
+      }
+    }
+
+    // どちらでも識別できない場合は空文字を返す
+    return ''
+  }
+
+  /**
+   * ZIP内容を分析してコンテンツタイプを特定する
+   */
+  private async analyzeZipContent(zipPath: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+        if (err) {
+          resolve(null)
+          return
+        }
+
+        const fileNames: string[] = []
+        let totalEntries = 0
+
+        zipfile.readEntry()
+
+        zipfile.on('entry', (entry: yauzl.Entry) => {
+          const fileName = this.decodeFilename(entry.fileName).toLowerCase()
+          fileNames.push(fileName)
+          totalEntries++
+
+          // エントリー数が多すぎる場合は早期終了
+          if (totalEntries > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES) {
+            zipfile.close()
+            resolve(this.determineContentType(fileNames))
+            return
+          }
+
+          zipfile.readEntry()
+        })
+
+        zipfile.on('end', () => {
+          resolve(this.determineContentType(fileNames))
+        })
+
+        zipfile.on('error', () => {
+          zipfile.close()
+          resolve(null)
+        })
+      })
+    })
+  }
+
+  /**
+   * ファイル名リストからコンテンツタイプを判定する
+   */
+  private determineContentType(fileNames: string[]): string | null {
+    const fileCount = fileNames.length
+
+    // マテリアル・テクスチャ関連のファイルをカウント
+    const materialFiles = fileNames.filter(
+      (name) =>
+        name.includes('material') ||
+        name.includes('texture') ||
+        /\.tex$/i.test(name) ||
+        /\.mat$/i.test(name) ||
+        /\.(png|jpg|jpeg|tga|exr|dds|hdr)$/i.test(name)
+    ).length
+
+    // スクリプト・プレハブ関連のファイルをカウント
+    const codeFiles = fileNames.filter(
+      (name) =>
+        /\.(cs|js|dll)$/i.test(name) ||
+        /\.prefab$/i.test(name) ||
+        /\.asset$/i.test(name) ||
+        /\.controller$/i.test(name) ||
+        /\.anim$/i.test(name)
+    ).length
+
+    // UnityPackageファイルをカウント
+    const unityPackageFiles = fileNames.filter((name) =>
+      /\.unitypackage$/i.test(name)
+    ).length
+
+    this.logger.debug(
+      `Content analysis: ${fileCount} files, ${materialFiles} material/texture, ${codeFiles} code/prefab, ${unityPackageFiles} unitypackage`
+    )
+
+    // 判定ロジック
+    if (
+      materialFiles > 0 &&
+      codeFiles === 0 &&
+      fileCount < VpmConverter.MAX_TEXTURE_ONLY_FILES
+    ) {
+      // マテリアル・テクスチャファイルが多く、コードファイルがない場合
+      return 'texture-material'
+    }
+
+    if (codeFiles > 0 && materialFiles === 0) {
+      // コードファイルが多く、マテリアルファイルがない場合
+      return 'scripts'
+    }
+
+    if (unityPackageFiles > 1) {
+      // 複数のUnityPackageファイルが含まれている場合
+      return 'multi-package'
+    }
+
+    if (
+      fileCount > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES ||
+      (materialFiles > 0 && codeFiles > 0)
+    ) {
+      // ファイル数が多いか、マテリアルとコードの両方が含まれている場合はフル版
+      return 'full'
+    }
+
+    // デフォルトでは null を返してファイル名ベースの識別子を使用
+    return null
   }
 
   /**
@@ -247,6 +439,11 @@ export class VpmConverter {
    */
   private extractFileIdentifier(filename: string): string {
     const nameWithoutExt = path.basename(filename, path.extname(filename))
+
+    // 最初に補助的なファイル（おまけ、bonus等）を識別
+    if (this.isSupplementaryFile(nameWithoutExt)) {
+      return this.getSupplementaryIdentifier(nameWithoutExt)
+    }
 
     // まずバージョンパターンを除去
     const versionPatterns = [
@@ -261,29 +458,17 @@ export class VpmConverter {
       cleanName = cleanName.replace(pattern, '')
     }
 
+    // プレフィックス-サフィックスパターンを検出
+    const prefixSuffixResult = this.extractPrefixSuffixIdentifier(cleanName)
+    if (prefixSuffixResult) {
+      return prefixSuffixResult
+    }
+
     // 一般的なファイル名パターンのクリーンアップ
     // 大文字で始まる単語を連続させたパターン（CamelCase商品名など）を処理
     // ただし、具体的な商品名はハードコーディングしない
 
     // 前後のアンダースコアやドットを除去
-    cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
-
-    // 意味のない部分を除去
-    const meaninglessParts = [
-      'Materials',
-      'Material',
-      'Texture',
-      'Tex',
-      'Full',
-      'FullSet',
-      'Set',
-      'FullSet',
-    ]
-    for (const part of meaninglessParts) {
-      cleanName = cleanName.replaceAll(new RegExp(part, 'gi'), '')
-    }
-
-    // 再度前後のアンダースコアやドットを除去
     cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
 
     // 空の場合やファイル全体が商品名のみの場合
@@ -323,6 +508,105 @@ export class VpmConverter {
     // 単一の部分の場合
     const identifier = parts[0].toLowerCase().replaceAll(/[^a-z0-9]/g, '')
     return identifier.slice(0, 20) || ''
+  }
+
+  /**
+   * プレフィックス-サフィックスパターンから識別子を抽出する
+   * 例: GestureSound-Mouth → mouth, ProductName-Hand → hand
+   */
+  private extractPrefixSuffixIdentifier(filename: string): string | null {
+    // ハイフンで区切られたパターンを検出
+    const hyphenPattern = /^([A-Za-z]+)-([A-Za-z]+)/
+    const hyphenMatch = hyphenPattern.exec(filename)
+    if (hyphenMatch) {
+      const [, prefix, suffix] = hyphenMatch
+      // プレフィックスが3文字以上でサフィックスが2文字以上の場合
+      if (prefix.length >= 3 && suffix.length >= 2) {
+        return suffix
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]/g, '')
+          .slice(0, 20)
+      }
+    }
+
+    // アンダースコアで区切られたパターンを検出
+    const underscorePattern = /^([A-Za-z]+)_([A-Za-z]+)/
+    const underscoreMatch = underscorePattern.exec(filename)
+    if (underscoreMatch) {
+      const [, prefix, suffix] = underscoreMatch
+      // プレフィックスが3文字以上でサフィックスが2文字以上の場合
+      if (prefix.length >= 3 && suffix.length >= 2) {
+        return suffix
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]/g, '')
+          .slice(0, 20)
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * 補助的なファイル（おまけ、bonus等）かどうかを判定する
+   */
+  private isSupplementaryFile(filename: string): boolean {
+    const lowerFilename = filename.toLowerCase()
+    const supplementaryKeywords = [
+      'おまけ',
+      'bonus',
+      'extra',
+      'additional',
+      'supplement',
+      'readme',
+      'manual',
+      'guide',
+      'instruction',
+      'sample',
+      'demo',
+      'example',
+      'test',
+      'trial',
+    ]
+
+    return supplementaryKeywords.some((keyword) =>
+      lowerFilename.includes(keyword)
+    )
+  }
+
+  /**
+   * 補助的なファイルの識別子を取得する
+   */
+  private getSupplementaryIdentifier(filename: string): string {
+    const lowerFilename = filename.toLowerCase()
+
+    if (lowerFilename.includes('おまけ')) {
+      return 'bonus'
+    }
+    if (lowerFilename.includes('bonus')) {
+      return 'bonus'
+    }
+    if (lowerFilename.includes('extra')) {
+      return 'extra'
+    }
+    if (lowerFilename.includes('additional')) {
+      return 'additional'
+    }
+    if (lowerFilename.includes('readme')) {
+      return 'readme'
+    }
+    if (lowerFilename.includes('manual') || lowerFilename.includes('guide')) {
+      return 'manual'
+    }
+    if (
+      lowerFilename.includes('sample') ||
+      lowerFilename.includes('demo') ||
+      lowerFilename.includes('example')
+    ) {
+      return 'sample'
+    }
+
+    // デフォルトは 'extra'
+    return 'extra'
   }
 
   /**
@@ -466,6 +750,12 @@ export class VpmConverter {
       }
 
       // VPMパッケージのZIPを作成
+      // tempDirが空でないことを確認
+      const tempDirFiles = fs.readdirSync(tempDir)
+      if (tempDirFiles.length === 0) {
+        throw new Error(`tempDir is empty: ${tempDir}`)
+      }
+
       execSync(`cd "${tempDir}" && zip -r -q "${targetZipPath}" .`, {
         stdio: 'inherit',
       })
@@ -476,8 +766,12 @@ export class VpmConverter {
         `Failed to create VPM package: ${String(error)}`,
         error instanceof Error ? error : new Error(String(error))
       )
-      // エラーの場合は簡単な構造でフォールバック
-      this.createFallbackPackage(sourcePath, targetZipPath, manifest)
+      // エラーの場合は簡単な構造でフォールバック（設定で有効な場合のみ）
+      if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+        this.createFallbackPackage(sourcePath, targetZipPath, manifest)
+      } else {
+        throw error
+      }
     } finally {
       // 一時ディレクトリを削除
       if (fs.existsSync(tempDir)) {
@@ -553,11 +847,18 @@ export class VpmConverter {
       } else {
         // UnityPackageが見つからない場合は警告
         this.logger.warn(`No UnityPackage found in ${zipPath}`)
-        this.createFallbackPackage(
-          zipPath,
-          path.join(targetDir, 'fallback.zip'),
-          manifest
-        )
+        if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+          this.createFallbackPackage(
+            zipPath,
+            path.join(targetDir, 'fallback.zip'),
+            manifest
+          )
+        } else {
+          this.logger.error(`Skipping fallback package creation for ${zipPath}`)
+          throw new Error(
+            `No UnityPackage found in ${zipPath} and fallback packages are disabled`
+          )
+        }
       }
     } finally {
       // ZIP展開用の一時フォルダを削除
@@ -794,8 +1095,12 @@ export class VpmConverter {
       this.logger.info('Created fallback package')
     } catch (error) {
       this.logger.error(`Failed to create fallback package: ${String(error)}`)
-      // 最終フォールバック
-      fs.copyFileSync(sourcePath, targetZipPath)
+      // 最終フォールバック（設定で有効な場合のみ）
+      if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
+        fs.copyFileSync(sourcePath, targetZipPath)
+      } else {
+        throw error
+      }
     } finally {
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true })
@@ -1053,6 +1358,7 @@ export class VpmConverter {
         })
 
         zipfile.on('error', (error: Error) => {
+          zipfile.close()
           reject(new Error(`ZIP extraction error: ${error.message}`))
         })
       })
@@ -1705,5 +2011,174 @@ export class VpmConverter {
       }
       return escapeMap[match] ?? match
     })
+  }
+
+  /**
+   * リポジトリの構成変更をチェックし、必要に応じて再構築する
+   */
+  private checkAndRebuildRepository(): void {
+    const metadataPath = path.join(this.repositoryDir, '.metadata.json')
+
+    // 現在のリポジトリメタデータを取得
+    const currentMetadata = this.getCurrentRepositoryMetadata()
+
+    // 既存のメタデータを読み込み
+    let existingMetadata: any = null
+    if (fs.existsSync(metadataPath)) {
+      try {
+        existingMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
+      } catch (error) {
+        this.logger.warn(`Failed to read metadata: ${String(error)}`)
+      }
+    }
+
+    // メタデータの比較
+    const needsRebuild = this.shouldRebuildRepository(
+      existingMetadata,
+      currentMetadata
+    )
+
+    if (needsRebuild) {
+      this.logger.info('Repository structure change detected, rebuilding...')
+      this.backupAndRebuildRepository()
+    } else {
+      this.logger.info('Repository structure is up to date')
+    }
+
+    // メタデータを更新
+    fs.writeFileSync(metadataPath, JSON.stringify(currentMetadata, null, 2))
+  }
+
+  /**
+   * 現在のリポジトリメタデータを取得
+   */
+  private getCurrentRepositoryMetadata(): {
+    converterVersion: string
+    generatedAt: string
+    nodeVersion: string
+    vpmEnabled: boolean
+    fallbackPackagesEnabled: boolean
+    configHash: string
+  } {
+    return {
+      converterVersion: this.CONVERTER_VERSION,
+      generatedAt: new Date().toISOString(),
+      nodeVersion: process.version,
+      vpmEnabled: Environment.getBoolean('VPM_ENABLED'),
+      fallbackPackagesEnabled: Environment.getBoolean(
+        'VPM_CREATE_FALLBACK_PACKAGES'
+      ),
+      configHash: this.calculateConfigHash(),
+    }
+  }
+
+  /**
+   * 設定のハッシュを計算（重要な設定項目の変更を検出）
+   */
+  private calculateConfigHash(): string {
+    const configData = {
+      VPM_ENABLED: Environment.getBoolean('VPM_ENABLED'),
+      VPM_CREATE_FALLBACK_PACKAGES: Environment.getBoolean(
+        'VPM_CREATE_FALLBACK_PACKAGES'
+      ),
+      VPM_REPOSITORY_DIR: Environment.getPath('VPM_REPOSITORY_DIR'),
+      CONVERTER_VERSION: this.CONVERTER_VERSION,
+    }
+
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify(configData))
+      .digest('hex')
+  }
+
+  /**
+   * リポジトリの再構築が必要かチェック
+   */
+  private shouldRebuildRepository(
+    existingMetadata: {
+      converterVersion?: string
+      configHash?: string
+      generatedAt?: string
+    } | null,
+    currentMetadata: {
+      converterVersion: string
+      configHash: string
+      generatedAt: string
+    }
+  ): boolean {
+    if (!existingMetadata) {
+      this.logger.info('No existing metadata found, repository will be created')
+      return false // 新規作成なので再構築は不要
+    }
+
+    // コンバーターバージョンが変更された場合
+    if (
+      existingMetadata.converterVersion !== currentMetadata.converterVersion
+    ) {
+      this.logger.info(
+        `Converter version changed: ${existingMetadata.converterVersion} -> ${currentMetadata.converterVersion}`
+      )
+      return true
+    }
+
+    // 設定ハッシュが変更された場合
+    if (existingMetadata.configHash !== currentMetadata.configHash) {
+      this.logger.info('Configuration hash changed, rebuild required')
+      return true
+    }
+
+    // 強制再構築が指定されている場合
+    if (Environment.getBoolean('VPM_FORCE_REBUILD')) {
+      this.logger.info('Force rebuild requested via VPM_FORCE_REBUILD')
+      return true
+    }
+
+    // 長期間更新されていない場合（30日以上）
+    if (existingMetadata.generatedAt) {
+      const lastGenerated = new Date(existingMetadata.generatedAt)
+      const daysSinceLastGeneration =
+        (Date.now() - lastGenerated.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceLastGeneration > 30) {
+        this.logger.info(
+          `Repository is old (${daysSinceLastGeneration.toFixed(1)} days), rebuild recommended`
+        )
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * リポジトリをバックアップして再構築
+   */
+  private backupAndRebuildRepository(): void {
+    // 既存のリポジトリをバックアップ
+    if (fs.existsSync(this.repositoryDir)) {
+      const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-')
+      const backupDir = `${this.repositoryDir}.backup-${timestamp}`
+
+      this.logger.info(`Backing up existing repository to: ${backupDir}`)
+      try {
+        execSync(`cp -r "${this.repositoryDir}" "${backupDir}"`, {
+          stdio: 'inherit',
+        })
+        this.logger.info('Backup completed successfully')
+      } catch (error) {
+        this.logger.error(`Backup failed: ${String(error)}`)
+        throw new Error('Failed to backup existing repository')
+      }
+    }
+
+    // 既存のリポジトリを削除
+    if (fs.existsSync(this.repositoryDir)) {
+      this.logger.info('Removing existing repository')
+      fs.rmSync(this.repositoryDir, { recursive: true, force: true })
+    }
+
+    // 新しいリポジトリディレクトリを作成
+    fs.mkdirSync(this.repositoryDir, { recursive: true })
+
+    this.logger.info('Repository rebuild completed')
   }
 }
