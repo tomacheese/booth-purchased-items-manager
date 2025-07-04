@@ -45,7 +45,7 @@ export class PageCache {
       return 0
     }
 
-    if (expireDays) {
+    if (expireDays !== null) {
       const savedAt = new Date(fs.readFileSync(savedAtPath, 'utf8'))
       const now = new Date()
       const diffDays = Math.floor(
@@ -54,6 +54,9 @@ export class PageCache {
       if (diffDays > expireDays) {
         return -1
       }
+    } else {
+      // expireDays が null の場合は常に期限切れとして扱う（キャッシュ無効化）
+      return -1
     }
 
     return 1
