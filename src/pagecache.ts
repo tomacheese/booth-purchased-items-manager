@@ -45,17 +45,17 @@ export class PageCache {
       return 0
     }
 
-    if (expireDays !== null) {
-      const savedAt = new Date(fs.readFileSync(savedAtPath, 'utf8'))
-      const now = new Date()
-      const diffDays = Math.floor(
-        (now.getTime() - savedAt.getTime()) / (1000 * 3600 * 24)
-      )
-      if (diffDays > expireDays) {
-        return -1
-      }
-    } else {
+    if (expireDays === null) {
       // expireDays が null の場合は常に期限切れとして扱う（キャッシュ無効化）
+      return -1
+    }
+
+    const savedAt = new Date(fs.readFileSync(savedAtPath, 'utf8'))
+    const now = new Date()
+    const diffDays = Math.floor(
+      (now.getTime() - savedAt.getTime()) / (1000 * 3600 * 24)
+    )
+    if (diffDays > expireDays) {
       return -1
     }
 
