@@ -20,14 +20,26 @@ describe('PageCache', () => {
     jest.resetAllMocks()
   })
 
-  // キャッシュからデータを読み込む処理のテスト
-  test('should load data from cache', () => {
+  // キャッシュからデータを読み込む処理のテスト（expireDays: null）
+  test('should load data from cache with null expireDays', () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readFileSync.mockReturnValue('{}')
 
+    const result = pageCache.load('testType', 'testId', null)
+    expect(result).toBeNull() // expireDays: null の場合は常に期限切れのためnull
+    expect(mockFs.unlinkSync).toHaveBeenCalledTimes(2) // ファイルとsavedAtが削除される
+  })
+
+  // キャッシュからデータを読み込む処理のテスト（有効なexpireDays）
+  test('should load data from cache with valid expireDays', () => {
+    mockFs.existsSync.mockReturnValue(true)
+    mockFs.readFileSync
+      .mockReturnValueOnce(new Date().toISOString()) // savedAtファイル（期限内）
+      .mockReturnValueOnce('{}') // キャッシュデータ
+
     const result = JSON.parse(
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      pageCache.load('testType', 'testId', null)!.toString()
+      pageCache.load('testType', 'testId', 7)!.toString()
     )
     expect(result).toEqual({})
   })
@@ -44,7 +56,7 @@ describe('PageCache', () => {
   test('should check item existence', () => {
     mockFs.existsSync.mockReturnValue(true)
     const result = pageCache.checkItemExistence('testType', 'testId', null)
-    expect(result).toBe(1)
+    expect(result).toBe(-1) // expireDays: null の場合は常に期限切れ
   })
 
   // アイテムの存在チェック（存在しない場合）のテスト
@@ -127,8 +139,8 @@ describe('PageCache', () => {
       fetchFunc
     )
 
-    expect(fetchFunc).not.toHaveBeenCalled()
-    expect(result).toBe('cached data')
+    expect(fetchFunc).toHaveBeenCalled() // expireDays: null の場合は常に期限切れなのでfetch実行
+    expect(result).toBe('new data')
   })
 
   // キャッシュファイル一覧取得のテスト
@@ -191,9 +203,9 @@ describe('PageCache', () => {
     pageCache.save('testType', 'testId4', 'new data')
 
     const metrics = pageCache.getMetrics()
-    expect(metrics.hit).toBe(1)
+    expect(metrics.hit).toBe(0) // expireDays: null では期限切れとなるためヒット数は0
     expect(metrics.miss).toBe(1)
-    expect(metrics.expired).toBe(1)
+    expect(metrics.expired).toBe(2) // 最初のloadと期限切れloadで2回期限切れ
     expect(metrics.saved).toBe(1)
   })
 
@@ -220,9 +232,9 @@ describe('PageCache', () => {
     pageCache.save('testType', 'testId7', 'new data') // saved
 
     const metrics = pageCache.getMetrics()
-    expect(metrics.hit).toBe(2)
+    expect(metrics.hit).toBe(0) // expireDays: null では期限切れとなるためヒット数は0
     expect(metrics.miss).toBe(2)
-    expect(metrics.expired).toBe(2)
+    expect(metrics.expired).toBe(4) // 2回のnullによる期限切れ + 2回の通常の期限切れ
     expect(metrics.saved).toBe(2)
   })
 
