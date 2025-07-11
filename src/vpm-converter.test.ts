@@ -7,17 +7,44 @@ import type { BoothProduct } from './booth'
 import * as yauzl from 'yauzl'
 import * as iconv from 'iconv-lite'
 
-// Mock @book000/node-utils Logger
-jest.mock('@book000/node-utils', () => ({
-  Logger: {
-    configure: jest.fn().mockReturnValue({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    }),
-  },
-}))
+// Helper function to check if mkdirSync was called with a path containing the specified string
+function wasMkdirSyncCalledWith(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return calls.some(
+    (call) =>
+      typeof call[0] === 'string' &&
+      call[0].includes(pathSubstring) &&
+      call[1] &&
+      typeof call[1] === 'object' &&
+      'recursive' in call[1] &&
+      call[1].recursive === true
+  )
+}
+
+// Helper function to check if mkdirSync was called with a path containing the specified string (simple version)
+function wasMkdirSyncCalledWithPath(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return calls.some(
+    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  )
+}
+
+// Helper function to check if mkdirSync was NOT called with a path containing the specified string
+function wasMkdirSyncNotCalledWithPath(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return !calls.some(
+    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  )
+}
 
 // Mock environment
 jest.mock('./environment')
@@ -824,17 +851,8 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should use filename-based identification (no identifier in this case)
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345') &&
-            call[1] &&
-            typeof call[1] === 'object' &&
-            'recursive' in call[1] &&
-            call[1].recursive === true
-        )
+        wasMkdirSyncCalledWith(mockMkdirSync, 'com.booth.testshop.12345')
       ).toBe(true)
     })
   })
@@ -872,19 +890,16 @@ describe('VpmConverter', () => {
 
       // Should create separate packages for mouth and hand
       expect(mockMkdirSync).toHaveBeenCalled()
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.meeenu.6283171.mouth')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.mouth'
         )
       ).toBe(true)
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.meeenu.6283171.hand')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.hand'
         )
       ).toBe(true)
     })
@@ -921,19 +936,16 @@ describe('VpmConverter', () => {
 
       // Should create separate packages for left and right
       expect(mockMkdirSync).toHaveBeenCalled()
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.left')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.left'
         )
       ).toBe(true)
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.right')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.right'
         )
       ).toBe(true)
     })
@@ -965,23 +977,16 @@ describe('VpmConverter', () => {
 
       // Should not use prefix-suffix pattern due to short parts
       expect(mockMkdirSync).toHaveBeenCalled()
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345') &&
-            !call[0].includes('.c')
-        )
+        wasMkdirSyncCalledWithPath(mockMkdirSync, 'com.booth.testshop.12345')
       ).toBe(true)
       // Should not contain .c suffix
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.c')
+        wasMkdirSyncNotCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.c'
         )
-      ).toBe(false)
+      ).toBe(true)
     })
   })
 
@@ -1111,12 +1116,10 @@ describe('VpmConverter', () => {
 
       // Should create package with bonus identifier
       expect(mockMkdirSync).toHaveBeenCalled()
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.meeenu.6283171.bonus')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.bonus'
         )
       ).toBe(true)
     })
@@ -1158,26 +1161,22 @@ describe('VpmConverter', () => {
 
       // Should create packages with appropriate identifiers
       expect(mockMkdirSync).toHaveBeenCalled()
-      const calls = (mockMkdirSync as jest.Mock).mock.calls
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.readme')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.readme'
         )
       ).toBe(true)
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.manual')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.manual'
         )
       ).toBe(true)
       expect(
-        calls.some(
-          (call) =>
-            typeof call[0] === 'string' &&
-            call[0].includes('com.booth.testshop.12345.sample')
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.sample'
         )
       ).toBe(true)
     })

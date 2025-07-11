@@ -7,10 +7,14 @@ const mockLogger = {
   debug: jest.fn(),
 }
 
-export const Logger = {
+export const Logger: {
+  configure: jest.MockedFunction<any>
+} = {
   configure: jest.fn(() => mockLogger),
 }
 
-export const Discord = {
+export const Discord: {
+  sendMessage: jest.MockedFunction<any>
+} = {
   sendMessage: jest.fn(),
 }

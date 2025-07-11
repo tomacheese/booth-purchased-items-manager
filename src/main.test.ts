@@ -96,22 +96,25 @@ describe('Main Functions', () => {
   let boothParser: BoothParser
   let pageCache: PageCache
   let tempDir: string
+  let loggerSpy: jest.SpiedFunction<typeof Logger.configure>
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
-    // Re-establish Logger mock after clearing
-    const mockLogger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      logger: {} as any, // Add missing logger property
-    }
-    
-    // Re-mock @book000/node-utils after clearAllMocks
-    jest.mocked(Logger.configure).mockImplementation(() => mockLogger as any)
-    
+
+    // Use jest.spyOn to mock Logger.configure
+    loggerSpy = jest.spyOn(Logger, 'configure')
+    loggerSpy.mockClear()
+    loggerSpy.mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+        logger: {} as any, // Add missing logger property
+      } as any
+    })
+
     tempDir = path.join(os.tmpdir(), `booth-test-${Date.now()}`)
 
     // モックの設定
