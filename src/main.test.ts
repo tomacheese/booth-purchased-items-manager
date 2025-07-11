@@ -15,17 +15,8 @@ import { jest } from '@jest/globals'
 import path from 'node:path'
 import os from 'node:os'
 
-// Mock @book000/node-utils Logger
-jest.mock('@book000/node-utils', () => ({
-  Logger: {
-    configure: jest.fn().mockReturnValue({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    }),
-  },
-}))
+// Use manual mock for @book000/node-utils
+jest.mock('@book000/node-utils')
 
 jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
