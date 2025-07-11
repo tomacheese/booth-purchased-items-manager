@@ -15,12 +15,43 @@ import { jest } from '@jest/globals'
 import path from 'node:path'
 import os from 'node:os'
 
+// Mock @book000/node-utils Logger
+jest.mock('@book000/node-utils', () => ({
+  Logger: {
+    configure: jest.fn().mockReturnValue({
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    }),
+  },
+}))
+
 jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
   writeFileSync: jest.fn(),
   mkdirSync: jest.fn(),
   readdirSync: jest.fn(),
+  createWriteStream: jest.fn(() => ({
+    on: jest.fn(),
+    write: jest.fn(),
+    end: jest.fn(),
+    destroy: jest.fn(),
+    setDefaultEncoding: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    emit: jest.fn(),
+    setMaxListeners: jest.fn(),
+    getMaxListeners: jest.fn(),
+    listeners: jest.fn(),
+    rawListeners: jest.fn(),
+    listenerCount: jest.fn(),
+    prependListener: jest.fn(),
+    prependOnceListener: jest.fn(),
+    eventNames: jest.fn(),
+  })),
 }))
 
 jest.mock('axios')
