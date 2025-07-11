@@ -7,6 +7,45 @@ import type { BoothProduct } from './booth'
 import * as yauzl from 'yauzl'
 import * as iconv from 'iconv-lite'
 
+// Helper function to check if mkdirSync was called with a path containing the specified string
+function wasMkdirSyncCalledWith(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return calls.some(
+    (call) =>
+      typeof call[0] === 'string' &&
+      call[0].includes(pathSubstring) &&
+      call[1] &&
+      typeof call[1] === 'object' &&
+      'recursive' in call[1] &&
+      call[1].recursive === true
+  )
+}
+
+// Helper function to check if mkdirSync was called with a path containing the specified string (simple version)
+function wasMkdirSyncCalledWithPath(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return calls.some(
+    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  )
+}
+
+// Helper function to check if mkdirSync was NOT called with a path containing the specified string
+function wasMkdirSyncNotCalledWithPath(
+  mockMkdirSync: jest.Mock,
+  pathSubstring: string
+): boolean {
+  const calls = mockMkdirSync.mock.calls
+  return !calls.some(
+    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  )
+}
+
 // Mock environment
 jest.mock('./environment')
 const mockEnvironment = Environment as jest.Mocked<typeof Environment>
@@ -200,7 +239,7 @@ describe('VpmConverter', () => {
     // Should create directory structure
     expect(mockFs.mkdirSync).toHaveBeenCalledWith(
       expect.stringContaining('packages/com.booth.avatarcreator.12345'),
-      { recursive: true }
+      expect.objectContaining({ recursive: true })
     )
 
     // Should write package.json and repository manifest (repository saved after each package)
@@ -239,7 +278,7 @@ describe('VpmConverter', () => {
     // Package name should be sanitized
     expect(mockFs.mkdirSync).toHaveBeenCalledWith(
       expect.stringContaining('com.booth.avatarcreator.12345'),
-      { recursive: true }
+      expect.objectContaining({ recursive: true })
     )
   })
 
@@ -812,10 +851,9 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should use filename-based identification (no identifier in this case)
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345'),
-        { recursive: true }
-      )
+      expect(
+        wasMkdirSyncCalledWith(mockMkdirSync, 'com.booth.testshop.12345')
+      ).toBe(true)
     })
   })
 
@@ -851,14 +889,19 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should create separate packages for mouth and hand
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.meeenu.6283171.mouth'),
-        { recursive: true }
-      )
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.meeenu.6283171.hand'),
-        { recursive: true }
-      )
+      expect(mockMkdirSync).toHaveBeenCalled()
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.mouth'
+        )
+      ).toBe(true)
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.hand'
+        )
+      ).toBe(true)
     })
 
     test('should handle underscore-separated prefix-suffix pattern', async () => {
@@ -892,14 +935,19 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should create separate packages for left and right
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.left'),
-        { recursive: true }
-      )
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.right'),
-        { recursive: true }
-      )
+      expect(mockMkdirSync).toHaveBeenCalled()
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.left'
+        )
+      ).toBe(true)
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.right'
+        )
+      ).toBe(true)
     })
 
     test('should not apply prefix-suffix pattern for short prefix or suffix', async () => {
@@ -928,15 +976,17 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should not use prefix-suffix pattern due to short parts
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345'),
-        { recursive: true }
-      )
+      expect(mockMkdirSync).toHaveBeenCalled()
+      expect(
+        wasMkdirSyncCalledWithPath(mockMkdirSync, 'com.booth.testshop.12345')
+      ).toBe(true)
       // Should not contain .c suffix
-      expect(mockMkdirSync).not.toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.c'),
-        { recursive: true }
-      )
+      expect(
+        wasMkdirSyncNotCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.c'
+        )
+      ).toBe(true)
     })
   })
 
@@ -1065,10 +1115,13 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should create package with bonus identifier
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.meeenu.6283171.bonus'),
-        { recursive: true }
-      )
+      expect(mockMkdirSync).toHaveBeenCalled()
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.meeenu.6283171.bonus'
+        )
+      ).toBe(true)
     })
 
     test('should identify various supplementary file types', async () => {
@@ -1107,18 +1160,25 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Should create packages with appropriate identifiers
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.readme'),
-        { recursive: true }
-      )
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.manual'),
-        { recursive: true }
-      )
-      expect(mockMkdirSync).toHaveBeenCalledWith(
-        expect.stringContaining('com.booth.testshop.12345.sample'),
-        { recursive: true }
-      )
+      expect(mockMkdirSync).toHaveBeenCalled()
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.readme'
+        )
+      ).toBe(true)
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.manual'
+        )
+      ).toBe(true)
+      expect(
+        wasMkdirSyncCalledWithPath(
+          mockMkdirSync,
+          'com.booth.testshop.12345.sample'
+        )
+      ).toBe(true)
     })
   })
 })

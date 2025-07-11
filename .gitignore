@@ -139,4 +139,7 @@ dist
 .pnpm-store
 data/
 
+# npm lock file (project uses pnpm)
+package-lock.json
+
 logs/

@@ -14,6 +14,24 @@ import axios from 'axios'
 import { jest } from '@jest/globals'
 import path from 'node:path'
 import os from 'node:os'
+import { Logger } from '@book000/node-utils'
+
+// Use manual mock for @book000/node-utils
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+}
+
+jest.mock('@book000/node-utils', () => ({
+  Logger: {
+    configure: jest.fn(() => mockLogger),
+  },
+  Discord: {
+    sendMessage: jest.fn(),
+  },
+}))
 
 jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
@@ -21,6 +39,25 @@ jest.mock('node:fs', () => ({
   writeFileSync: jest.fn(),
   mkdirSync: jest.fn(),
   readdirSync: jest.fn(),
+  createWriteStream: jest.fn(() => ({
+    on: jest.fn(),
+    write: jest.fn(),
+    end: jest.fn(),
+    destroy: jest.fn(),
+    setDefaultEncoding: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    emit: jest.fn(),
+    setMaxListeners: jest.fn(),
+    getMaxListeners: jest.fn(),
+    listeners: jest.fn(),
+    rawListeners: jest.fn(),
+    listenerCount: jest.fn(),
+    prependListener: jest.fn(),
+    prependOnceListener: jest.fn(),
+    eventNames: jest.fn(),
+  })),
 }))
 
 jest.mock('axios')
@@ -59,9 +96,25 @@ describe('Main Functions', () => {
   let boothParser: BoothParser
   let pageCache: PageCache
   let tempDir: string
+  let loggerSpy: jest.SpiedFunction<typeof Logger.configure>
 
   beforeEach(() => {
     jest.clearAllMocks()
+
+    // Use jest.spyOn to mock Logger.configure
+    loggerSpy = jest.spyOn(Logger, 'configure')
+    loggerSpy.mockClear()
+    loggerSpy.mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+        logger: {} as any, // Add missing logger property
+      } as any
+    })
+
     tempDir = path.join(os.tmpdir(), `booth-test-${Date.now()}`)
 
     // モックの設定
