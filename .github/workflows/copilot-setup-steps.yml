@@ -19,6 +19,12 @@ jobs:
     name: Setup Development Environment for Copilot
     runs-on: ubuntu-latest
     
+    env:
+      # Puppeteer configuration for CI environment
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+      CHROMIUM_PATH: '/usr/bin/chromium-browser'
+      IS_HEADLESS: 'true'
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +37,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ steps.node-version.outputs.version }}
-          cache: 'npm'
           
       - name: Enable Corepack for pnpm
         run: corepack enable
@@ -39,7 +44,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: '10.12.4'
           
       - name: Get pnpm store directory
         shell: bash
@@ -61,42 +66,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            ca-certificates \
+            chromium-browser \
+            fonts-noto-cjk \
             fonts-liberation \
             libasound2 \
             libatk-bridge2.0-0 \
-            libatk1.0-0 \
-            libc6 \
-            libcairo-gobject2 \
-            libcairo2 \
-            libcups2 \
-            libdbus-1-3 \
-            libexpat1 \
-            libfontconfig1 \
-            libgbm1 \
-            libgcc1 \
-            libglib2.0-0 \
+            libdrm2 \
             libgtk-3-0 \
+            libgtk-4-1 \
             libnspr4 \
             libnss3 \
-            libpango-1.0-0 \
-            libpangocairo-1.0-0 \
-            libstdc++6 \
-            libx11-6 \
             libx11-xcb1 \
-            libxcb1 \
             libxcomposite1 \
             libxcursor1 \
             libxdamage1 \
-            libxext6 \
             libxfixes3 \
             libxi6 \
             libxrandr2 \
             libxrender1 \
             libxss1 \
             libxtst6 \
-            lsb-release \
-            wget \
             xdg-utils
             
       - name: Compile TypeScript
