@@ -6,13 +6,11 @@ name: Copilot Setup Steps
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
   pull_request:
-    branches:
-      - main
-      - master
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
 
 jobs:
   setup-development-environment:
