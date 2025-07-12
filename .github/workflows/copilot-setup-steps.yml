@@ -29,22 +29,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Read Node.js version
-        id: node-version
-        run: echo "version=$(cat .node-version)" >> $GITHUB_OUTPUT
-        
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ steps.node-version.outputs.version }}
+          node-version-file: '.node-version'
           
-      - name: Enable Corepack for pnpm
-        run: corepack enable
-        
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.12.4'
+          package_json_file: 'package.json'
           
       - name: Get pnpm store directory
         shell: bash
