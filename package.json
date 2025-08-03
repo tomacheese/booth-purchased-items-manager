@@ -33,7 +33,7 @@
   "homepage": "https://github.com/tomacheese/booth-purchased-items-manager",
   "license": "MIT",
   "main": "dist/main.js",
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@10.14.0",
   "private": true,
   "repository": {
     "url": "git@github.com:tomacheese/booth-purchased-items-manager.git",
