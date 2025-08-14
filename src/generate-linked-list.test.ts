@@ -67,7 +67,7 @@ describe('generateLinkedList', () => {
     })
   })
 
-  test('should generate bidirectional linked list', () => {
+  test('should generate bidirectional linked list with separate sections', () => {
     // Use the default mocks from beforeEach for this test
     generateLinkedList()
 
@@ -75,8 +75,10 @@ describe('generateLinkedList', () => {
     const writeCall = mockedFs.writeFileSync.mock.calls[0]
     const generatedMarkdown = writeCall[1] as string
 
-    // Product 1 should have links to both Product 2 (outgoing) and Product 3 (incoming)
+    // Product 1 should have outgoing link to Product 2 and incoming link from Product 3
     expect(generatedMarkdown).toContain('## Product 1 (111)')
+    expect(generatedMarkdown).toContain('### リンク先')
+    expect(generatedMarkdown).toContain('### 被リンク')
     expect(generatedMarkdown).toContain(
       '- [Product 2](https://booth.pm/ja/items/222)'
     )
@@ -84,7 +86,7 @@ describe('generateLinkedList', () => {
       '- [Product 3](https://booth.pm/ja/items/333)'
     )
 
-    // Product 2 should have links to both Product 3 (outgoing) and Product 1 (incoming)
+    // Product 2 should have outgoing link to Product 3 and incoming link from Product 1
     expect(generatedMarkdown).toContain('## Product 2 (222)')
     expect(generatedMarkdown).toContain(
       '- [Product 3](https://booth.pm/ja/items/333)'
@@ -93,7 +95,7 @@ describe('generateLinkedList', () => {
       '- [Product 1](https://booth.pm/ja/items/111)'
     )
 
-    // Product 3 should have links to both Product 1 (outgoing) and Product 2 (incoming)
+    // Product 3 should have outgoing link to Product 1 and incoming link from Product 2
     expect(generatedMarkdown).toContain('## Product 3 (333)')
     expect(generatedMarkdown).toContain(
       '- [Product 1](https://booth.pm/ja/items/111)'
@@ -131,17 +133,27 @@ describe('generateLinkedList', () => {
     const writeCall = mockedFs.writeFileSync.mock.calls[0]
     const generatedMarkdown = writeCall[1] as string
 
-    // Product 1 should have outgoing link to Product 2
+    // Product 1 should have only outgoing link to Product 2, no incoming links
     expect(generatedMarkdown).toContain('## Product 1 (111)')
+    expect(generatedMarkdown).toContain('### リンク先')
     expect(generatedMarkdown).toContain(
       '- [Product 2](https://booth.pm/ja/items/222)'
     )
+    
+    // Check that Product 1 section doesn't have incoming links
+    const product1Section = generatedMarkdown.split('## Product 2')[0]
+    expect(product1Section).not.toContain('### 被リンク')
 
-    // Product 2 should have incoming link from Product 1
+    // Product 2 should have only incoming link from Product 1, no outgoing links  
     expect(generatedMarkdown).toContain('## Product 2 (222)')
+    expect(generatedMarkdown).toContain('### 被リンク')
     expect(generatedMarkdown).toContain(
       '- [Product 1](https://booth.pm/ja/items/111)'
     )
+    
+    // Check that Product 2 section doesn't have outgoing links
+    const product2Section = generatedMarkdown.split('## Product 2')[1]
+    expect(product2Section).not.toContain('### リンク先')
 
     // Product 3 should not appear (no links)
     expect(generatedMarkdown).not.toContain('## Product 3 (333)')
@@ -177,7 +189,7 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toBe('')
   })
 
-  test('should not duplicate links when product has both incoming and outgoing to same target', () => {
+  test('should not duplicate links when product has bidirectional relationship', () => {
     const mockIdLinkingDuplicate = [
       { from: '111', to: '222' }, // Product 1 → Product 2
       { from: '222', to: '111' }, // Product 2 → Product 1 (creates bidirectional link)
@@ -206,20 +218,26 @@ describe('generateLinkedList', () => {
     const writeCall = mockedFs.writeFileSync.mock.calls[0]
     const generatedMarkdown = writeCall[1] as string
 
-    // Product 1 should only mention Product 2 once despite bidirectional link
+    // Product 1 should have outgoing link to Product 2 and incoming link from Product 2
+    expect(generatedMarkdown).toContain('## Product 1 (111)')
+    expect(generatedMarkdown).toContain('### リンク先')
+    expect(generatedMarkdown).toContain('### 被リンク')
+    
+    // Check that Product 2 appears once in each section for Product 1
     const product1Section = generatedMarkdown.split('## Product 2')[0]
-    const product2Links = product1Section.split(
-      '- [Product 2](https://booth.pm/ja/items/222)'
-    )
-    expect(product2Links).toHaveLength(2) // One split = one occurrence
+    const outgoingSection = product1Section.split('### リンク先')[1].split('### 被リンク')[0]
+    const incomingSection = product1Section.split('### 被リンク')[1]
+    
+    expect(outgoingSection).toContain('- [Product 2](https://booth.pm/ja/items/222)')
+    expect(incomingSection).toContain('- [Product 2](https://booth.pm/ja/items/222)')
 
-    // Product 2 should only mention Product 1 once despite bidirectional link
+    // Product 2 should have outgoing link to Product 1 and incoming link from Product 1
+    expect(generatedMarkdown).toContain('## Product 2 (222)')
     const product2Section = generatedMarkdown.split('## Product 2')[1]
     if (product2Section) {
-      const product1Links = product2Section.split(
-        '- [Product 1](https://booth.pm/ja/items/111)'
-      )
-      expect(product1Links).toHaveLength(2) // One split = one occurrence
+      expect(product2Section).toContain('### リンク先')
+      expect(product2Section).toContain('### 被リンク')
+      expect(product2Section).toContain('- [Product 1](https://booth.pm/ja/items/111)')
     }
   })
 })

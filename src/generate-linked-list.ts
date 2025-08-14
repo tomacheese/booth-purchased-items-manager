@@ -28,10 +28,13 @@ export function generateLinkedList() {
       .filter((link) => link.to === productId)
       .map((link) => link.from)
 
-    // 両方向のIDを統合し、重複を除去
-    const allLinkedIds = [...new Set([...outgoingIds, ...incomingIds])]
+    const outgoingProducts = outgoingIds.flatMap((linkedId) => {
+      return products.filter((item) => {
+        return item.productId === linkedId
+      })
+    })
 
-    const linkedProducts = allLinkedIds.flatMap((linkedId) => {
+    const incomingProducts = incomingIds.flatMap((linkedId) => {
       return products.filter((item) => {
         return item.productId === linkedId
       })
@@ -43,7 +46,12 @@ export function generateLinkedList() {
         name: product.productName,
         shop: product.shopName,
       },
-      linkedItems: linkedProducts.map((item) => ({
+      outgoingLinks: outgoingProducts.map((item) => ({
+        productId: item.productId,
+        name: item.productName,
+        shop: item.shopName,
+      })),
+      incomingLinks: incomingProducts.map((item) => ({
         productId: item.productId,
         name: item.productName,
         shop: item.shopName,
@@ -52,17 +60,36 @@ export function generateLinkedList() {
   }
 
   const markdown = results
-    .filter((result) => result.linkedItems.length > 0)
-    .map(
-      (result) =>
-        `## ${result.product.name} (${result.product.productId})\n\n` +
-        result.linkedItems
+    .filter((result) => result.outgoingLinks.length > 0 || result.incomingLinks.length > 0)
+    .map((result) => {
+      let output = `## ${result.product.name} (${result.product.productId})\n\n`
+      
+      if (result.outgoingLinks.length > 0) {
+        output += `### リンク先\n\n`
+        output += result.outgoingLinks
           .map(
             (item) =>
               `- [${item.name}](https://booth.pm/ja/items/${item.productId})`
           )
           .join('\n')
-    )
+        
+        if (result.incomingLinks.length > 0) {
+          output += '\n\n'
+        }
+      }
+      
+      if (result.incomingLinks.length > 0) {
+        output += `### 被リンク\n\n`
+        output += result.incomingLinks
+          .map(
+            (item) =>
+              `- [${item.name}](https://booth.pm/ja/items/${item.productId})`
+          )
+          .join('\n')
+      }
+      
+      return output
+    })
     .join('\n\n')
 
   fs.writeFileSync(linkedItemsPath, markdown)
