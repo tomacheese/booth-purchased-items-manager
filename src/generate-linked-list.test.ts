@@ -139,18 +139,18 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toContain(
       '- [Product 2](https://booth.pm/ja/items/222)'
     )
-    
+
     // Check that Product 1 section doesn't have incoming links
     const product1Section = generatedMarkdown.split('## Product 2')[0]
     expect(product1Section).not.toContain('### 被リンク')
 
-    // Product 2 should have only incoming link from Product 1, no outgoing links  
+    // Product 2 should have only incoming link from Product 1, no outgoing links
     expect(generatedMarkdown).toContain('## Product 2 (222)')
     expect(generatedMarkdown).toContain('### 被リンク')
     expect(generatedMarkdown).toContain(
       '- [Product 1](https://booth.pm/ja/items/111)'
     )
-    
+
     // Check that Product 2 section doesn't have outgoing links
     const product2Section = generatedMarkdown.split('## Product 2')[1]
     expect(product2Section).not.toContain('### リンク先')
@@ -222,14 +222,20 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toContain('## Product 1 (111)')
     expect(generatedMarkdown).toContain('### リンク先')
     expect(generatedMarkdown).toContain('### 被リンク')
-    
+
     // Check that Product 2 appears once in each section for Product 1
     const product1Section = generatedMarkdown.split('## Product 2')[0]
-    const outgoingSection = product1Section.split('### リンク先')[1].split('### 被リンク')[0]
+    const outgoingSection = product1Section
+      .split('### リンク先')[1]
+      .split('### 被リンク')[0]
     const incomingSection = product1Section.split('### 被リンク')[1]
-    
-    expect(outgoingSection).toContain('- [Product 2](https://booth.pm/ja/items/222)')
-    expect(incomingSection).toContain('- [Product 2](https://booth.pm/ja/items/222)')
+
+    expect(outgoingSection).toContain(
+      '- [Product 2](https://booth.pm/ja/items/222)'
+    )
+    expect(incomingSection).toContain(
+      '- [Product 2](https://booth.pm/ja/items/222)'
+    )
 
     // Product 2 should have outgoing link to Product 1 and incoming link from Product 1
     expect(generatedMarkdown).toContain('## Product 2 (222)')
@@ -237,7 +243,9 @@ describe('generateLinkedList', () => {
     if (product2Section) {
       expect(product2Section).toContain('### リンク先')
       expect(product2Section).toContain('### 被リンク')
-      expect(product2Section).toContain('- [Product 1](https://booth.pm/ja/items/111)')
+      expect(product2Section).toContain(
+        '- [Product 1](https://booth.pm/ja/items/111)'
+      )
     }
   })
 })

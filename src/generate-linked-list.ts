@@ -60,10 +60,13 @@ export function generateLinkedList() {
   }
 
   const markdown = results
-    .filter((result) => result.outgoingLinks.length > 0 || result.incomingLinks.length > 0)
+    .filter(
+      (result) =>
+        result.outgoingLinks.length > 0 || result.incomingLinks.length > 0
+    )
     .map((result) => {
       let output = `## ${result.product.name} (${result.product.productId})\n\n`
-      
+
       if (result.outgoingLinks.length > 0) {
         output += `### リンク先\n\n`
         output += result.outgoingLinks
@@ -72,12 +75,12 @@ export function generateLinkedList() {
               `- [${item.name}](https://booth.pm/ja/items/${item.productId})`
           )
           .join('\n')
-        
+
         if (result.incomingLinks.length > 0) {
           output += '\n\n'
         }
       }
-      
+
       if (result.incomingLinks.length > 0) {
         output += `### 被リンク\n\n`
         output += result.incomingLinks
@@ -87,7 +90,7 @@ export function generateLinkedList() {
           )
           .join('\n')
       }
-      
+
       return output
     })
     .join('\n\n')
