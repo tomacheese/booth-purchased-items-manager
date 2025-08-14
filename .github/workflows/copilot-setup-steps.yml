@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  setup-development-environment:
+  copilot-setup-steps:
     name: Setup Development Environment for Copilot
     runs-on: ubuntu-latest
     
