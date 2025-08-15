@@ -26,6 +26,11 @@ export class Environment {
       value: process.env.LINKED_ITEMS_PATH ?? 'data/linked_items.md',
       type: 'file',
     },
+    LINKED_ITEMS_HTML_PATH: {
+      value:
+        process.env.LINKED_ITEMS_HTML_PATH ?? 'data/public/linked_items.html',
+      type: 'file',
+    },
     COOKIE_PATH: {
       value: process.env.COOKIE_PATH ?? 'data/cookies.json',
       type: 'file',

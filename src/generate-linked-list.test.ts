@@ -55,6 +55,7 @@ describe('generateLinkedList', () => {
       .mockReturnValueOnce('/mock/products.json')
       .mockReturnValueOnce('/mock/id_linking.json')
       .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
 
     // Mock fs.readFileSync
     mockedFs.readFileSync
@@ -71,9 +72,12 @@ describe('generateLinkedList', () => {
     // Use the default mocks from beforeEach for this test
     generateLinkedList()
 
-    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1)
-    const writeCall = mockedFs.writeFileSync.mock.calls[0]
-    const generatedMarkdown = writeCall[1] as string
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2) // Now expects 2 calls: MD and HTML
+
+    // Check Markdown output (first call)
+    const markdownCall = mockedFs.writeFileSync.mock.calls[0]
+    const generatedMarkdown = markdownCall[1] as string
+    expect(markdownCall[0]).toBe('/mock/linked_items.md')
 
     // Product 1 should have outgoing link to Product 2 and incoming link from Product 3
     expect(generatedMarkdown).toContain('## Product 1 (111)')
@@ -103,6 +107,21 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toContain(
       '- [Product 2](https://booth.pm/ja/items/222)'
     )
+
+    // Check HTML output (second call)
+    const htmlCall = mockedFs.writeFileSync.mock.calls[1]
+    const generatedHtml = htmlCall[1] as string
+    expect(htmlCall[0]).toBe('/mock/linked_items.html')
+
+    // Basic HTML structure checks
+    expect(generatedHtml).toContain('<!DOCTYPE html>')
+    expect(generatedHtml).toContain('<title>リンクアイテム一覧</title>')
+    expect(generatedHtml).toContain('Product 1')
+    expect(generatedHtml).toContain('Product 2')
+    expect(generatedHtml).toContain('Product 3')
+    expect(generatedHtml).toContain('https://booth.pm/ja/items/222')
+    expect(generatedHtml).toContain('https://booth.pm/ja/items/333')
+    expect(generatedHtml).toContain('https://booth.pm/ja/items/111')
   })
 
   test('should handle products with only outgoing links', () => {
@@ -118,6 +137,7 @@ describe('generateLinkedList', () => {
       .mockReturnValueOnce('/mock/products.json')
       .mockReturnValueOnce('/mock/id_linking.json')
       .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
 
     mockedFs.readFileSync
       .mockReturnValueOnce(JSON.stringify(mockProducts))
@@ -129,9 +149,9 @@ describe('generateLinkedList', () => {
 
     generateLinkedList()
 
-    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1)
-    const writeCall = mockedFs.writeFileSync.mock.calls[0]
-    const generatedMarkdown = writeCall[1] as string
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2) // Now expects 2 calls: MD and HTML
+    const markdownCall = mockedFs.writeFileSync.mock.calls[0]
+    const generatedMarkdown = markdownCall[1] as string
 
     // Product 1 should have only outgoing link to Product 2, no incoming links
     expect(generatedMarkdown).toContain('## Product 1 (111)')
@@ -170,6 +190,7 @@ describe('generateLinkedList', () => {
       .mockReturnValueOnce('/mock/products.json')
       .mockReturnValueOnce('/mock/id_linking.json')
       .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
 
     mockedFs.readFileSync
       .mockReturnValueOnce(JSON.stringify(mockProducts))
@@ -181,12 +202,18 @@ describe('generateLinkedList', () => {
 
     generateLinkedList()
 
-    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1)
-    const writeCall = mockedFs.writeFileSync.mock.calls[0]
-    const generatedMarkdown = writeCall[1] as string
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2) // Now expects 2 calls: MD and HTML
+    const markdownCall = mockedFs.writeFileSync.mock.calls[0]
+    const generatedMarkdown = markdownCall[1] as string
 
     // Should be empty string since no products have links
     expect(generatedMarkdown).toBe('')
+
+    // HTML should contain basic structure even with no products
+    const htmlCall = mockedFs.writeFileSync.mock.calls[1]
+    const generatedHtml = htmlCall[1] as string
+    expect(generatedHtml).toContain('<!DOCTYPE html>')
+    expect(generatedHtml).toContain('<title>リンクアイテム一覧</title>')
   })
 
   test('should not duplicate links when product has bidirectional relationship', () => {
@@ -203,6 +230,7 @@ describe('generateLinkedList', () => {
       .mockReturnValueOnce('/mock/products.json')
       .mockReturnValueOnce('/mock/id_linking.json')
       .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
 
     mockedFs.readFileSync
       .mockReturnValueOnce(JSON.stringify(mockProducts))
@@ -214,9 +242,9 @@ describe('generateLinkedList', () => {
 
     generateLinkedList()
 
-    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(1)
-    const writeCall = mockedFs.writeFileSync.mock.calls[0]
-    const generatedMarkdown = writeCall[1] as string
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2) // Now expects 2 calls: MD and HTML
+    const markdownCall = mockedFs.writeFileSync.mock.calls[0]
+    const generatedMarkdown = markdownCall[1] as string
 
     // Product 1 should have outgoing link to Product 2 and incoming link from Product 2
     expect(generatedMarkdown).toContain('## Product 1 (111)')
@@ -247,5 +275,72 @@ describe('generateLinkedList', () => {
         '- [Product 1](https://booth.pm/ja/items/111)'
       )
     }
+  })
+
+  test('should properly escape HTML in product names and shop names', () => {
+    const mockProductsWithHtml: BoothProduct[] = [
+      {
+        productId: '111',
+        productName: 'Product <script>alert("xss")</script>',
+        productURL: 'url1',
+        thumbnailURL: 'thumb1',
+        shopName: 'Shop "A" & Co <script>',
+        shopURL: 'shopurl1',
+        items: [],
+      },
+      {
+        productId: '222',
+        productName: 'Product & "Test"',
+        productURL: 'url2',
+        thumbnailURL: 'thumb2',
+        shopName: 'Shop <B>',
+        shopURL: 'shopurl2',
+        items: [],
+      },
+    ]
+
+    const mockIdLinkingHtml = [{ from: '111', to: '222' }]
+
+    // Clear all mocks before the test
+    jest.resetAllMocks()
+
+    // Set up fresh mocks for this test
+    mockedEnvironment.getPath
+      .mockReturnValueOnce('/mock/products.json')
+      .mockReturnValueOnce('/mock/id_linking.json')
+      .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
+
+    mockedFs.readFileSync
+      .mockReturnValueOnce(JSON.stringify(mockProductsWithHtml))
+      .mockReturnValueOnce(JSON.stringify(mockIdLinkingHtml))
+
+    mockedFs.writeFileSync.mockImplementation(() => {
+      // Empty function
+    })
+
+    generateLinkedList()
+
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2)
+    const htmlCall = mockedFs.writeFileSync.mock.calls[1]
+    const generatedHtml = htmlCall[1] as string
+
+    // Check that HTML special characters are properly escaped
+    expect(generatedHtml).toContain(
+      'Product &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+    )
+    expect(generatedHtml).toContain(
+      'Shop &quot;A&quot; &amp; Co &lt;script&gt;'
+    )
+    expect(generatedHtml).toContain('Product &amp; &quot;Test&quot;')
+    expect(generatedHtml).toContain('Shop &lt;B&gt;')
+
+    // Verify that raw HTML/JS is NOT present in the content areas
+    expect(generatedHtml).not.toContain('<script>alert("xss")</script>')
+    expect(generatedHtml).not.toContain('Shop "A" & Co')
+    expect(generatedHtml).not.toContain('Shop <B>')
+
+    // Verify that the malicious script doesn't appear unescaped in the content
+    expect(generatedHtml).not.toContain('alert("xss")')
   })
 })
