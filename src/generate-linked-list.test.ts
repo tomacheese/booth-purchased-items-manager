@@ -276,4 +276,71 @@ describe('generateLinkedList', () => {
       )
     }
   })
+
+  test('should properly escape HTML in product names and shop names', () => {
+    const mockProductsWithHtml: BoothProduct[] = [
+      {
+        productId: '111',
+        productName: 'Product <script>alert("xss")</script>',
+        productURL: 'url1',
+        thumbnailURL: 'thumb1',
+        shopName: 'Shop "A" & Co <script>',
+        shopURL: 'shopurl1',
+        items: [],
+      },
+      {
+        productId: '222',
+        productName: 'Product & "Test"',
+        productURL: 'url2',
+        thumbnailURL: 'thumb2',
+        shopName: 'Shop <B>',
+        shopURL: 'shopurl2',
+        items: [],
+      },
+    ]
+
+    const mockIdLinkingHtml = [{ from: '111', to: '222' }]
+
+    // Clear all mocks before the test
+    jest.resetAllMocks()
+
+    // Set up fresh mocks for this test
+    mockedEnvironment.getPath
+      .mockReturnValueOnce('/mock/products.json')
+      .mockReturnValueOnce('/mock/id_linking.json')
+      .mockReturnValueOnce('/mock/linked_items.md')
+      .mockReturnValueOnce('/mock/linked_items.html')
+
+    mockedFs.readFileSync
+      .mockReturnValueOnce(JSON.stringify(mockProductsWithHtml))
+      .mockReturnValueOnce(JSON.stringify(mockIdLinkingHtml))
+
+    mockedFs.writeFileSync.mockImplementation(() => {
+      // Empty function
+    })
+
+    generateLinkedList()
+
+    expect(mockedFs.writeFileSync).toHaveBeenCalledTimes(2)
+    const htmlCall = mockedFs.writeFileSync.mock.calls[1]
+    const generatedHtml = htmlCall[1] as string
+
+    // Check that HTML special characters are properly escaped
+    expect(generatedHtml).toContain(
+      'Product &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+    )
+    expect(generatedHtml).toContain(
+      'Shop &quot;A&quot; &amp; Co &lt;script&gt;'
+    )
+    expect(generatedHtml).toContain('Product &amp; &quot;Test&quot;')
+    expect(generatedHtml).toContain('Shop &lt;B&gt;')
+
+    // Verify that raw HTML/JS is NOT present in the content areas
+    expect(generatedHtml).not.toContain('<script>alert("xss")</script>')
+    expect(generatedHtml).not.toContain('Shop "A" & Co')
+    expect(generatedHtml).not.toContain('Shop <B>')
+
+    // Verify that the malicious script doesn't appear unescaped in the content
+    expect(generatedHtml).not.toContain('alert("xss")')
+  })
 })

@@ -15,6 +15,22 @@ interface LinkedListResult {
 }
 
 /**
+ * HTMLエスケープ関数
+ */
+function escapeHtml(text: string): string {
+  return text.replaceAll(/[&<>"']/g, (match: string) => {
+    const escapeMap: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }
+    return escapeMap[match] ?? match
+  })
+}
+
+/**
  * HTMLテンプレートを生成する
  */
 function generateHtmlTemplate(results: LinkedListResult[]): string {
@@ -246,9 +262,9 @@ function generateHtmlTemplate(results: LinkedListResult[]): string {
             ${results
               .map(
                 (result) => `
-            <div class="product-card" data-product-name="${result.product.name.toLowerCase()}">
+            <div class="product-card" data-product-name="${escapeHtml(result.product.name.toLowerCase())}">
                 <div class="product-header">
-                    <div class="product-title">${result.product.name}</div>
+                    <div class="product-title">${escapeHtml(result.product.name)}</div>
                     <div class="product-id">${result.product.productId}</div>
                 </div>
                 
@@ -261,7 +277,7 @@ function generateHtmlTemplate(results: LinkedListResult[]): string {
                         ${result.outgoingLinks
                           .map(
                             (item) =>
-                              `<li><a href="https://booth.pm/ja/items/${item.productId}" class="link-item" target="_blank">${item.name}</a><span class="shop-name">(${item.shop})</span></li>`
+                              `<li><a href="https://booth.pm/ja/items/${item.productId}" class="link-item" target="_blank">${escapeHtml(item.name)}</a><span class="shop-name">(${escapeHtml(item.shop)})</span></li>`
                           )
                           .join('')}
                     </ul>
@@ -279,7 +295,7 @@ function generateHtmlTemplate(results: LinkedListResult[]): string {
                         ${result.incomingLinks
                           .map(
                             (item) =>
-                              `<li><a href="https://booth.pm/ja/items/${item.productId}" class="link-item" target="_blank">${item.name}</a><span class="shop-name">(${item.shop})</span></li>`
+                              `<li><a href="https://booth.pm/ja/items/${item.productId}" class="link-item" target="_blank">${escapeHtml(item.name)}</a><span class="shop-name">(${escapeHtml(item.shop)})</span></li>`
                           )
                           .join('')}
                     </ul>
