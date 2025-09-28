@@ -151,7 +151,7 @@ describe('PageCache', () => {
       { name: 'file2.html', isFile: () => true },
       { name: 'file3.txt', isFile: () => true },
       { name: 'dir1', isFile: () => false },
-    ] as unknown as fs.Dirent[])
+    ] as any)
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', 'file2'])
@@ -166,7 +166,7 @@ describe('PageCache', () => {
       { name: 'file3.txt', isFile: () => true },
       { name: 'subdir', isFile: () => false },
       { name: '.DS_Store', isFile: () => true },
-    ] as unknown as fs.Dirent[])
+    ] as any)
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', 'file2'])
@@ -248,7 +248,7 @@ describe('PageCache', () => {
       { name: '.DS_Store', isFile: () => true },
       { name: 'subdir', isFile: () => false },
       { name: 'file3.txt', isFile: () => true },
-    ] as unknown as fs.Dirent[])
+    ] as any)
 
     const result = pageCache.list('testType')
     expect(result).toEqual(['file1', '.hidden', 'file2'])

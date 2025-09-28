@@ -17,21 +17,23 @@ import os from 'node:os'
 import { Logger } from '@book000/node-utils'
 
 // Use manual mock for @book000/node-utils
-const mockLogger = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-}
+jest.mock('@book000/node-utils', () => {
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  }
 
-jest.mock('@book000/node-utils', () => ({
-  Logger: {
-    configure: jest.fn(() => mockLogger),
-  },
-  Discord: {
-    sendMessage: jest.fn(),
-  },
-}))
+  return {
+    Logger: {
+      configure: jest.fn().mockReturnValue(mockLogger),
+    },
+    Discord: {
+      sendMessage: jest.fn(),
+    },
+  }
+})
 
 jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
