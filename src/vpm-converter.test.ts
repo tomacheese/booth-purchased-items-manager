@@ -535,10 +535,8 @@ describe('VpmConverter', () => {
 
       // Mock finding unity packages after fallback extraction
       mockFs.readdirSync
-        .mockReturnValueOnce([] as fs.Dirent[]) // First call in findUnityPackageFiles
-        .mockReturnValueOnce([
-          'extracted.unitypackage',
-        ] as unknown as fs.Dirent[]) // After fallback
+        .mockReturnValueOnce([] as any) // First call in findUnityPackageFiles
+        .mockReturnValueOnce(['extracted.unitypackage'] as any) // After fallback
 
       await vpmConverter.convertBoothItemsToVpm(products)
 
