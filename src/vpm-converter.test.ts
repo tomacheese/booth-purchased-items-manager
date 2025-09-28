@@ -438,8 +438,11 @@ describe('VpmConverter', () => {
 
       // Mock iconv decode
       mockIconv.decode.mockImplementation(
-        (buffer: Buffer, encoding: string): string => {
-          const str = buffer.toString('binary')
+        (buffer: Buffer | Uint8Array, encoding: string): string => {
+          const bufferInstance = Buffer.isBuffer(buffer)
+            ? buffer
+            : Buffer.from(buffer)
+          const str = bufferInstance.toString('binary')
           if (encoding === 'utf8') {
             return 'テスト.unitypackage'
           } else if (encoding === 'sjis') {
@@ -608,12 +611,15 @@ describe('VpmConverter', () => {
 
       // Mock iconv decode to handle different encodings
       mockIconv.decode.mockImplementation(
-        (buffer: Buffer, encoding: string): string => {
+        (buffer: Buffer | Uint8Array, encoding: string): string => {
           const testCase = testCases.find((tc) => tc.encoding === encoding)
           if (testCase) {
             return testCase.encoded
           }
-          return buffer.toString()
+          const bufferInstance = Buffer.isBuffer(buffer)
+            ? buffer
+            : Buffer.from(buffer)
+          return bufferInstance.toString()
         }
       )
 
