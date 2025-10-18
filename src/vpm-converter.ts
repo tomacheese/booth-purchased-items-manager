@@ -472,7 +472,7 @@ export class VpmConverter {
     cleanName = cleanName.replaceAll(/^[._-]+|[._-]+$/g, '')
 
     // 空の場合やファイル全体が商品名のみの場合
-    if (!cleanName || cleanName.length === 0) {
+    if (cleanName.length === 0) {
       // 特殊なケースの識別
       if (nameWithoutExt.toLowerCase().includes('material')) {
         return 'materials'
@@ -1554,7 +1554,7 @@ export class VpmConverter {
     const packages = Object.entries(repository.packages)
       .map(([name, pkg]) => {
         const versions = Object.entries(pkg.versions)
-        const latestVersion = versions.sort(([, a], [, b]) =>
+        const latestVersion = versions.toSorted(([, a], [, b]) =>
           b.version.localeCompare(a.version, undefined, { numeric: true })
         )[0]
 
@@ -1572,12 +1572,12 @@ export class VpmConverter {
               url: manifest.url,
               description: manifest.description,
             }))
-            .sort((a, b) =>
+            .toSorted((a, b) =>
               b.version.localeCompare(a.version, undefined, { numeric: true })
             ),
         }
       })
-      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      .toSorted((a, b) => a.displayName.localeCompare(b.displayName))
 
     const html = this.generateHtmlTemplate(repository, packages)
     const htmlPath = path.join(this.repositoryDir, 'index.html')
