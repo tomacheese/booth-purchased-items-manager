@@ -89,7 +89,6 @@ jest.mock('puppeteer-core', () => ({
   })),
 }))
 
-const mockAxios = axios as jest.Mocked<typeof axios>
 const mockFs = fs as jest.Mocked<typeof fs>
 const mockEnvironment = Environment as jest.Mocked<typeof Environment>
 
@@ -135,6 +134,14 @@ describe('Main Functions', () => {
     boothRequest = new BoothRequest()
     jest.spyOn(boothRequest, 'login').mockResolvedValue()
     jest.spyOn(boothRequest, 'checkLogin').mockResolvedValue(true)
+    jest.spyOn(boothRequest, 'getLibraryPage').mockResolvedValue({
+      status: 200,
+      data: '<html></html>',
+    } as any)
+    jest.spyOn(boothRequest, 'getLibraryGiftsPage').mockResolvedValue({
+      status: 200,
+      data: '<html></html>',
+    } as any)
     jest.spyOn(boothRequest, 'getPublicWishlistJson').mockResolvedValue({
       status: 200,
       data: { items: [] },
@@ -182,22 +189,28 @@ describe('Main Functions', () => {
   describe('fetchPurchased', () => {
     // ユーザーがログイン済みの場合の購入済み商品取得テスト
     test('should fetch purchased items when user is logged in', async () => {
-      mockAxios.get.mockReset()
+      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const getLibraryGiftsPageSpy = jest.spyOn(
+        boothRequest,
+        'getLibraryGiftsPage'
+      )
+      getLibraryPageSpy.mockReset()
+      getLibraryGiftsPageSpy.mockReset()
       // libraryページ1
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: `<html>Product 1</html>`,
-      })
+      } as any)
       // libraryページ2（空）
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      })
+      } as any)
       // giftページ1（空）
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      })
+      } as any)
       jest
         .spyOn(boothParser, 'parseLibraryPage')
         .mockImplementation((html: string) => {
@@ -235,9 +248,22 @@ describe('Main Functions', () => {
 
     // ログインしていない場合にログイン処理が呼ばれるかのテスト
     test('should attempt to login if user is not logged in', async () => {
-      mockAxios.get.mockReset()
+      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const getLibraryGiftsPageSpy = jest.spyOn(
+        boothRequest,
+        'getLibraryGiftsPage'
+      )
+      getLibraryPageSpy.mockReset()
+      getLibraryGiftsPageSpy.mockReset()
       // libraryページ（正常）
-      mockAxios.get.mockResolvedValue({ status: 200, data: '<html></html>' })
+      getLibraryPageSpy.mockResolvedValue({
+        status: 200,
+        data: '<html></html>',
+      } as any)
+      getLibraryGiftsPageSpy.mockResolvedValue({
+        status: 200,
+        data: '<html></html>',
+      } as any)
       const loginMock = jest
         .spyOn(boothRequest, 'login')
         .mockResolvedValueOnce()
@@ -256,27 +282,33 @@ describe('Main Functions', () => {
 
     // ライブラリ・ギフトページに複数商品がある場合のテスト
     test('should handle library and gift pages with multiple items', async () => {
-      mockAxios.get.mockReset()
+      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const getLibraryGiftsPageSpy = jest.spyOn(
+        boothRequest,
+        'getLibraryGiftsPage'
+      )
+      getLibraryPageSpy.mockReset()
+      getLibraryGiftsPageSpy.mockReset()
       // libraryページ1
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>library page 1</html>',
-      })
+      } as any)
       // libraryページ2（空）
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      })
+      } as any)
       // giftページ1
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>gift page</html>',
-      })
+      } as any)
       // giftページ2（空）
-      mockAxios.get.mockResolvedValueOnce({
+      getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      })
+      } as any)
       jest
         .spyOn(pageCache, 'loadOrFetch')
         .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
