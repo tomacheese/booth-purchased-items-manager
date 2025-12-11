@@ -28,7 +28,7 @@
     "ts-jest": "29.4.6",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "typescript-json-schema": "0.67.0"
+    "typescript-json-schema": "0.67.1"
   },
   "homepage": "https://github.com/tomacheese/booth-purchased-items-manager",
   "license": "MIT",
