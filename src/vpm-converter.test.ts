@@ -5,7 +5,7 @@ import { VpmConverter } from './vpm-converter'
 import { Environment } from './environment'
 import type { BoothProduct } from './booth'
 import * as yauzl from 'yauzl'
-import * as iconv from 'iconv-lite'
+import iconv from 'iconv-lite'
 
 // Helper function to check if mkdirSync was called with a path containing the specified string
 function wasMkdirSyncCalledWith(
@@ -64,7 +64,7 @@ const mockYauzl = yauzl as jest.Mocked<typeof yauzl>
 
 // Mock iconv-lite
 jest.mock('iconv-lite')
-const mockIconv = iconv as jest.Mocked<typeof iconv>
+const mockIconvDecode = jest.spyOn(iconv, 'decode')
 
 describe('VpmConverter', () => {
   let vpmConverter: VpmConverter
@@ -437,7 +437,7 @@ describe('VpmConverter', () => {
       })
 
       // Mock iconv decode
-      mockIconv.decode.mockImplementation(
+      mockIconvDecode.mockImplementation(
         (buffer: Buffer | Uint8Array, encoding: string): string => {
           const bufferInstance = Buffer.isBuffer(buffer)
             ? buffer
@@ -486,7 +486,7 @@ describe('VpmConverter', () => {
 
       // Verify yauzl was used for extraction
       expect(mockYauzl.open).toHaveBeenCalled()
-      expect(mockIconv.decode).toHaveBeenCalled()
+      expect(mockIconvDecode).toHaveBeenCalled()
     })
 
     test.skip('should fallback to shell unzip when yauzl fails', async () => {
@@ -610,7 +610,7 @@ describe('VpmConverter', () => {
       ]
 
       // Mock iconv decode to handle different encodings
-      mockIconv.decode.mockImplementation(
+      mockIconvDecode.mockImplementation(
         (buffer: Buffer | Uint8Array, encoding: string): string => {
           const testCase = testCases.find((tc) => tc.encoding === encoding)
           if (testCase) {
@@ -644,7 +644,7 @@ describe('VpmConverter', () => {
       await vpmConverter.convertBoothItemsToVpm(products)
 
       // Verify encoding detection was attempted
-      expect(mockIconv.decode).toHaveBeenCalledWith(expect.any(Buffer), 'utf8')
+      expect(mockIconvDecode).toHaveBeenCalledWith(expect.any(Buffer), 'utf8')
     })
   })
 
