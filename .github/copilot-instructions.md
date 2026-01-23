@@ -110,8 +110,6 @@ test: add unit tests for booth parser
 refactor: improve error handling in main workflow
 ```
 
-
-
 ## 環境変数
 
 ### 必須設定
