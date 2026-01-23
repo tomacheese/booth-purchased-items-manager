@@ -1,8 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
-# Booth Purchased Items Manager
+## Booth Purchased Items Manager
 
 Boothで購入したアイテムを自動的にVPMリポジトリに変換・管理するシステムです。
 
@@ -34,17 +35,17 @@ TypeScript/Node.jsアプリケーションで、以下のパイプラインを�
 ## 開発コマンド
 
 ```bash
-# ホットリロード付き開発サーバー
+## ホットリロード付き開発サーバー
 pnpm dev
 
-# 本番実行
+## 本番実行
 pnpm start
 
-# テスト
+## テスト
 pnpm test                    # 全テスト実行
 pnpm test src/booth.test.ts  # 特定のテストファイル実行
 
-# コード品質
+## コード品質
 pnpm lint                    # リンティング、フォーマット、型チェック
 pnpm fix                     # リンティング・フォーマット問題の自動修正
 pnpm lint:tsc               # 型チェックのみ
@@ -53,17 +54,17 @@ pnpm lint:tsc               # 型チェックのみ
 ## Docker環境
 
 ```bash
-# 完全リビルドと実行
+## 完全リビルドと実行
 docker compose up --build
 
-# バックグラウンド実行
+## バックグラウンド実行
 docker compose up --build -d
 
-# VPMリポジトリをクリーンアップしてリビルド
+## VPMリポジトリをクリーンアップしてリビルド
 docker compose run --rm app rm -rf /app/data/vpm-repository
 docker compose up --build
 
-# ログ監視
+## ログ監視
 docker logs booth-purchased-items-manager-app-1 --tail 20 -f
 ```
 
@@ -75,7 +76,7 @@ docker logs booth-purchased-items-manager-app-1 --tail 20 -f
 
 すべてのVPMパッケージの一貫性問題、空ディレクトリ、不正なメタデータを検証します。
 
-### /project:rebuild-and-verify  
+### /project:rebuild-and-verify
 
 VPMリポジトリを完全に再構築し、包括的な検証を実行します。
 
@@ -102,9 +103,11 @@ VPMリポジトリを完全に再構築し、包括的な検証を実行しま�
 
 ## よくある問題
 
-**パッケージ識別**: VPMコンバーターは関連パッケージの識別とファイル名競合防止のための高度なロジックを使用します。パターンマッチングと識別ルールは`vpm-converter.ts`を確認してください。
+**パッケージ識別**:
+VPMコンバーターは関連パッケージの識別とファイル名競合防止のための高度なロジックを使用します。パターンマッチングと識別ルールは`vpm-converter.ts`を確認してください。
 
-**空のパッケージ**: UnityPackage抽出が失敗した場合、`VPM_CREATE_FALLBACK_PACKAGES=true`でフォールバックパッケージを作成できます。
+**空のパッケージ**:
+UnityPackage抽出が失敗した場合、`VPM_CREATE_FALLBACK_PACKAGES=true`でフォールバックパッケージを作成できます。
 
 **認証**: 実行間でBoothログインセッションを維持するため、`data/cookies.json`に永続クッキーストレージを使用します。
 
@@ -134,10 +137,10 @@ VPMコンバーターは、構成変更を自動検出してリポジトリを�
 ### 使用例
 
 ```bash
-# 強制再構築
+## 強制再構築
 VPM_FORCE_REBUILD=true pnpm start
 
-# フォールバックパッケージ有効化で再構築
+## フォールバックパッケージ有効化で再構築
 VPM_CREATE_FALLBACK_PACKAGES=true VPM_FORCE_REBUILD=true pnpm start
 ```
 

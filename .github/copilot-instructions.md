@@ -2,7 +2,8 @@
 
 ## プロジェクト概要
 
-このプロジェクトは、BOOTH で購入したアイテムを自動的に VPM（VRChat Package Manager）リポジトリに変換・管理する TypeScript/Node.js アプリケーションです。
+このプロジェクトは、BOOTH で購入したアイテムを自動的に VPM（VRChat Package Manager）リポジトリに変換・管理する
+TypeScript/Node.js アプリケーションです。
 
 ### 主要機能
 
@@ -102,7 +103,7 @@ pnpm test src/booth.test.ts
 
 ### Conventional Commits 例
 
-```
+```text
 feat: add new wishlist monitoring feature
 fix: resolve VPM package conversion error
 docs: update README with new environment variables
@@ -172,7 +173,7 @@ const html = await pageCache.loadOrFetch(
 
 ### ディレクトリ構造
 
-```
+```text
 src/
 ├── main.ts              # メインエントリーポイント
 ├── booth.ts             # BOOTH API/スクレイピング
@@ -223,6 +224,7 @@ docker logs booth-purchased-items-manager-app-1 --tail 20 -f
 - `main`/`master` ブランチで CI 必須
 - pull_request 時に CI 実行
 - merge_group 対応
+
 ## よくある作業
 
 ### 新機能追加
