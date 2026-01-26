@@ -17,8 +17,18 @@ Gemini CLI がプロジェクトの文脈を正確に理解し、適切な提案
 - 会話は日本語で行う。
 - PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
   - `<type>(<scope>): <description>` 形式
-  - `<description>` は日本語で記載
+  - `<description>` は英語で記載
 - 日本語と英数字の間には半角スペースを挿入する。
+
+## 判断記録のルール
+
+作業中の重要な意思決定については、以下の情報を明示してください。
+
+- 判断内容の要約
+- 検討した代替案
+- 採用しなかった案とその理由
+- 前提条件・仮定・不確実性
+- 他エージェントによるレビュー可否
 
 ## プロジェクト概要
 
@@ -65,6 +75,18 @@ pnpm fix
 - 認証情報（`BOOTH_EMAIL`, `BOOTH_PASSWORD` 等）を絶対にコミットしない。
 - `data/cookies.json` に保存されるセッション情報の取り扱いに注意する。
 - 既存のアーキテクチャ（`src/vpm-converter.ts`, `src/booth.ts` 等）を尊重し、整合性を保つ。
+
+## ドキュメント更新
+
+次のファイルや設定に影響する変更を行った場合は、内容の更新を検討すること。
+
+- `README.md`
+- `CLAUDE.md`
+- `GEMINI.md`
+- `AGENTS.md`
+- `.github/copilot-instructions.md`
+- CI 設定（`.github/workflows/*.yml`）
+- Docker 関連ファイル（`Dockerfile`, `compose.yaml` など）
 
 ## リポジトリ固有
 

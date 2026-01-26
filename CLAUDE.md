@@ -16,7 +16,7 @@
 - 会話は日本語で行う。
 - PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
   - `<type>(<scope>): <description>` 形式
-  - `<description>` は日本語で記載
+  - `<description>` は英語で記載
 - コメントは日本語で記載する。
 - エラーメッセージは原則英語で記載する。
 - 日本語と英数字の間には半角スペースを挿入する。
