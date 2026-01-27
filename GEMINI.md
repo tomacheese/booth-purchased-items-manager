@@ -17,7 +17,7 @@ Gemini CLI がプロジェクトの文脈を正確に理解し、適切な提案
 - 会話は日本語で行う。
 - PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
   - `<type>(<scope>): <description>` 形式
-  - `<description>` は英語で記載
+  - `<description>` は英語で記載する
 - 日本語と英数字の間には半角スペースを挿入する。
 
 ## 判断記録のルール

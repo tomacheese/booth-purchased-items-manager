@@ -15,7 +15,7 @@
 - 会話は日本語で行う。
 - PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
   - `<type>(<scope>): <description>` 形式
-  - `<description>` は英語で記載
+  - `<description>` は英語で記載する
 - ブランチ命名は [Conventional Branch](https://conventional-branch.github.io) に従う。
   - `<type>/<description>` 形式
   - `<type>` は短縮形（feat, fix）を使用

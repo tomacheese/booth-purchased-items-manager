@@ -16,7 +16,7 @@
 - 会話は日本語で行う。
 - PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
   - `<type>(<scope>): <description>` 形式
-  - `<description>` は英語で記載
+  - `<description>` は英語で記載する
 - コメントは日本語で記載する。
 - エラーメッセージは原則英語で記載する。
 - 日本語と英数字の間には半角スペースを挿入する。
@@ -118,23 +118,3 @@ pnpm fix
 1. Conventional Commits に従っていることを確認する
 2. センシティブな情報が含まれていないことを確認する
 3. `pnpm lint` でエラーがないことを確認する
-4. `pnpm test` で動作確認を行う
-
-### PR 作成前
-
-1. ユーザーから PR 作成の依頼があることを確認する
-2. センシティブな情報が含まれていないことを確認する
-3. コンフリクトの恐れがないことを確認する
-
-### PR 作成後
-
-1. コンフリクトが発生していないことを確認する
-2. PR 本文が最新の状態のみを網羅し、日本語で詳細に記載されていることを確認する
-3. `gh pr checks <PR ID> --watch` で CI 結果を確認する
-4. GitHub Copilot レビュー（10分以内）に対応する
-5. Codex のコードレビューを実施し、指摘（スコア50以上）に対応する
-
-## リポジトリ固有
-
-- VPM 検証ツールが `.claude/commands/` に定義されている。
-- Docker 環境での実行も考慮する（`compose.yaml`, `Dockerfile`）。
