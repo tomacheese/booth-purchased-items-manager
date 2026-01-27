@@ -1,186 +1,120 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、Claude Code がこのリポジトリで作業する際の作業方針とルールを示します。
 
-# Booth Purchased Items Manager
+## プロジェクト概要
 
-Boothで購入したアイテムを自動的にVPMリポジトリに変換・管理するシステムです。
+- 目的: BOOTH で購入した商品や無料配布商品を管理・ダウンロードし、VPM リポジトリへ変換する
+- 主な機能:
+  - 購入済み・ギフト・ウィッシュリストからの商品取得（Puppeteer によるスクレイピング）
+  - 商品ファイルの自動ダウンロード
+  - UnityPackage の VPM リポジトリ形式への変換
+  - Discord Webhook による通知
 
-## コアアーキテクチャ
+## 重要ルール
 
-TypeScript/Node.jsアプリケーションで、以下のパイプラインを実行します：
+- 会話は日本語で行う。
+- PR とコミットは [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) に従う。
+  - `<type>(<scope>): <description>` 形式
+  - `<description>` は英語で記載する
+- コメントは日本語で記載する。
+- エラーメッセージは原則英語で記載する。
+- 日本語と英数字の間には半角スペースを挿入する。
 
-1. **Boothスクレイピング** (`booth.ts`) - Puppeteerを使用して購入済みアイテム、ギフト、ウィッシュリストアイテムを取得
-2. **アイテム処理** (`main.ts`) - 取得、ダウンロード、変換を調整
-3. **VPM変換** (`vpm-converter.ts`) - UnityPackageをVRChat Package Manager形式に変換
-4. **キャッシュ層** (`pagecache.ts`) - 開発時の重複API呼び出しを防止
-5. **環境管理** (`environment.ts`) - 設定の一元管理
+## 判断記録のルール
 
-### 主要コンポーネント
+- 判断内容の要約
+- 検討した代替案
+- 採用しなかった案とその理由
+- 前提条件・仮定・不確実性
+- 他エージェントによるレビュー可否
 
-- **BoothParser**: HTMLページから商品情報を抽出
-- **BoothRequest**: Booth認証とHTTPリクエストを処理
-- **VpmConverter**: UnityPackageからVPM形式への変換ロジック
-- **PageCache**: HTMLレスポンスのファイルベースキャッシュ
+## 環境のルール
 
-### データフロー
+- ブランチ命名は [Conventional Branch](https://conventional-branch.github.io) に従う。
+  - `<type>/<description>` 形式
+  - `<type>` は短縮形（feat, fix）を使用
+- GitHub リポジトリの調査が必要な場合は、テンポラリディレクトリに clone して行う。
+- Renovate が作成した既存の PR に対して、追加コミットや更新を行ってはならない。
 
-1. Boothから購入済みアイテム、ギフト、ウィッシュリストアイテムを取得
-2. 各アイテムのUnityPackageファイルをダウンロード
-3. パッケージ内容を抽出・分析
-4. VPM互換のpackage.jsonマニフェストを生成
-5. 適切なファイルハッシュ付きでバージョン管理されたリポジトリ構造を作成
+## コード改修時のルール
+
+- 既存のエラーメッセージで先頭に絵文字がある場合は、全体でエラーメッセージに絵文字を設定する。
+- TypeScript において、`skipLibCheck` を有効にして回避することは禁止。
+- 関数やインターフェースには、日本語で docstring (JSDoc) を記載・更新する。
+
+## 相談ルール
+
+- **Codex CLI**: 実装レビュー、局所設計、整合性確認に使用。
+- **Gemini CLI**: 外部仕様、最新情報の確認に使用。
+- 指摘への対応: コードレビュー等の指摘は黙殺せず、必ず対応または返答する。
 
 ## 開発コマンド
 
 ```bash
-# ホットリロード付き開発サーバー
+# 依存関係のインストール
+pnpm install
+
+# 開発（ウォッチモード）
 pnpm dev
 
-# 本番実行
+# 実行
 pnpm start
 
-# テスト
-pnpm test                    # 全テスト実行
-pnpm test src/booth.test.ts  # 特定のテストファイル実行
+# テスト実行
+pnpm test
 
-# コード品質
-pnpm lint                    # リンティング、フォーマット、型チェック
-pnpm fix                     # リンティング・フォーマット問題の自動修正
-pnpm lint:tsc               # 型チェックのみ
+# 特定のテストファイル実行
+pnpm test src/booth.test.ts
+
+# リンター実行（lint:prettier, lint:eslint, lint:tsc）
+pnpm lint
+
+# 自動修正実行
+pnpm fix
 ```
 
-## Docker環境
+## アーキテクチャと主要ファイル
 
-```bash
-# 完全リビルドと実行
-docker compose up --build
+- **コアアーキテクチャ**:
+  1. `booth.ts`: Puppeteer を使用したスクレイピング
+  2. `main.ts`: 全体のオーケストレーション
+  3. `vpm-converter.ts`: UnityPackage から VPM 形式への変換
+  4. `pagecache.ts`: キャッシュ層
+  5. `environment.ts`: 環境変数・設定管理
+- **データフロー**:
+  - Booth から商品情報を取得 → ダウンロード → 抽出・分析 → VPM マニフェスト生成 → リポジトリ構造作成
 
-# バックグラウンド実行
-docker compose up --build -d
+## 実装パターン
 
-# VPMリポジトリをクリーンアップしてリビルド
-docker compose run --rm app rm -rf /app/data/vpm-repository
-docker compose up --build
+- 認証情報は `data/cookies.json` に永続化される。
+- VPM リポジトリの自動再構築ロジックが `vpm-converter.ts` に含まれている。
 
-# ログ監視
-docker logs booth-purchased-items-manager-app-1 --tail 20 -f
-```
+## テスト
 
-## VPMパッケージ検証
+- Jest を使用。ファイルシステム操作を伴うため `--runInBand` を必須とする。
+- 新機能やバグ修正時には、対応するテストファイル（`*.test.ts`）を作成・更新する。
 
-品質保証のためのカスタム検証ツールが含まれています：
+## ドキュメント更新ルール
 
-### /project:verify-packages
+- 以下のファイルを変更に合わせて更新する:
+  - `README.md`
+  - `.github/copilot-instructions.md`
+  - `GEMINI.md`
+  - `AGENTS.md`
 
-すべてのVPMパッケージの一貫性問題、空ディレクトリ、不正なメタデータを検証します。
+## 作業チェックリスト
 
-### /project:rebuild-and-verify  
+### 新規改修時
 
-VPMリポジトリを完全に再構築し、包括的な検証を実行します。
+1. プロジェクトを詳細に探索し理解する
+2. 作業ブランチが適切であることを確認する
+3. 最新のリモートブランチに基づいた新規ブランチであることを確認する
+4. 不要となったブランチは削除されていることを確認する
+5. `pnpm install` で依存関係をインストールする
 
-### /project:test-packages [パッケージ名]
+### コミット・プッシュ前
 
-特定のパッケージのVPM形式コンプライアンスと整合性をテストします。
-
-## テスト戦略
-
-- 個別コンポーネントの単体テスト (booth.test.ts, vpm-converter.test.ts)
-- メインワークフローの統合テスト (main.test.ts)
-- 環境検証テスト (environment.test.ts)
-- ファイルシステム操作のため`--runInBand`でのJest逐次実行
-
-## 重要な環境変数
-
-異なるデプロイメントシナリオでの重要な設定：
-
-- `BOOTH_EMAIL`/`BOOTH_PASSWORD` - 認証情報
-- `VPM_CREATE_FALLBACK_PACKAGES` - フォールバックパッケージ作成の制御
-- `VPM_ENABLED` - VPM変換機能の切り替え
-- `WISHLIST_IDS` - 無料アイテム自動検出用のカンマ区切りウィッシュリストID
-- `IS_HEADLESS` - 開発時のブラウザ表示制御
-
-## よくある問題
-
-**パッケージ識別**: VPMコンバーターは関連パッケージの識別とファイル名競合防止のための高度なロジックを使用します。パターンマッチングと識別ルールは`vpm-converter.ts`を確認してください。
-
-**空のパッケージ**: UnityPackage抽出が失敗した場合、`VPM_CREATE_FALLBACK_PACKAGES=true`でフォールバックパッケージを作成できます。
-
-**認証**: 実行間でBoothログインセッションを維持するため、`data/cookies.json`に永続クッキーストレージを使用します。
-
-## VPMリポジトリ自動再構築
-
-VPMコンバーターは、構成変更を自動検出してリポジトリを再構築します：
-
-### 自動再構築のトリガー
-
-- **コンバーターバージョン更新**: `CONVERTER_VERSION`の変更時
-- **設定変更**: VPM関連環境変数の変更時
-- **長期未更新**: 30日以上更新されていない場合
-- **強制再構築**: `VPM_FORCE_REBUILD=true`指定時
-
-### 再構築プロセス
-
-1. 既存リポジトリのバックアップ作成（`.backup-{timestamp}`形式）
-2. 既存リポジトリの削除
-3. 新しいリポジトリの再生成
-4. メタデータファイル（`.metadata.json`）の更新
-
-### 関連環境変数
-
-- `VPM_FORCE_REBUILD`: 強制的にリポジトリを再構築（デフォルト: false）
-- `VPM_CREATE_FALLBACK_PACKAGES`: フォールバックパッケージの作成（デフォルト: false）
-
-### 使用例
-
-```bash
-# 強制再構築
-VPM_FORCE_REBUILD=true pnpm start
-
-# フォールバックパッケージ有効化で再構築
-VPM_CREATE_FALLBACK_PACKAGES=true VPM_FORCE_REBUILD=true pnpm start
-```
-
-## 開発ワークフロー
-
-issue対応や機能開発を行う際は、以下の手順に従ってください：
-
-### ブランチ作成と作業手順
-
-1. **ブランチ作成**: `origin/master`をベースとしたno-trackブランチを作成
-
-   ```bash
-   git checkout -b issue-XXX-description --no-track origin/master
-   ```
-
-2. **開発作業**: 該当ブランチで変更を実施
-
-3. **品質チェック**: ローカルで品質チェックを実行
-
-   ```bash
-   pnpm lint    # リンティング、フォーマット、型チェック
-   pnpm test    # 全テスト実行
-   ```
-
-4. **コミット・プッシュ**: 変更をコミットしてリモートにプッシュ
-
-   ```bash
-   git add .
-   git commit -m "適切なコミットメッセージ"
-   git push -u origin issue-XXX-description
-   ```
-
-5. **PR作成**: GitHub上でプルリクエストを作成
-
-6. **コードレビュー対応**: Copilotによるレビューに対応
-   - 通常のコメント
-   - コードレビューサジェスト
-   - 両方を参照して必要に応じて修正
-
-7. **CI対応**: CIがパスするまで修正を継続
-
-### 重要な注意点
-
-- 品質チェック（lint/test）は必ずローカルで事前実行
-- CIは必ずパスさせる
-- Copilotのサジェストは慎重に検討して適用
+1. Conventional Commits に従っていることを確認する
+2. センシティブな情報が含まれていないことを確認する
+3. `pnpm lint` でエラーがないことを確認する
