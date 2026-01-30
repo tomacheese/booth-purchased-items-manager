@@ -47,24 +47,24 @@ docker run -e WISHLIST_IDS="KAaTPPrr,other_id" ...
 
 ## 環境変数
 
-| 変数名 | 説明 | デフォルト値 |
-|--------|------|--------------|
-| `IS_HEADLESS` | ヘッドレスモードで実行 | `false` |
-| `IS_IGNORE_COOKIE` | クッキーを無視 | `false` |
-| `CHROMIUM_PATH` | Chromiumのパス | - |
-| `PRODUCTS_PATH` | 商品情報の保存パス | `data/products.json` |
-| `ID_MAPPING_PATH` | IDマッピングの保存パス | `data/id_linking.json` |
-| `LINKED_ITEMS_PATH` | リンク済みアイテムの保存パス | `data/linked_items.md` |
-| `COOKIE_PATH` | クッキーの保存パス | `data/cookies.json` |
-| `CACHE_DIR` | キャッシュディレクトリ | `data/cache/` |
-| `DOWNLOADED_ITEMS_DIR` | ダウンロードアイテムの保存ディレクトリ | `data/items/` |
-| `NEW_DIR` | 新着アイテムの保存ディレクトリ | `data/new/` |
-| `DISCORD_WEBHOOK_URL` | Discord Webhook URL | - |
-| `VPM_REPOSITORY_DIR` | VPMリポジトリディレクトリ | `data/vpm-repository/` |
-| `VPM_ENABLED` | VPM変換を有効化 | `true` |
-| `VPM_BASE_URL` | VPMベースURL | - |
-| `FREE_ITEMS_PATH` | 無料アイテムリストのパス | `data/free-items.json` |
-| `WISHLIST_IDS` | 欲しいものリストID（カンマ区切り） | - |
+| 変数名                 | 説明                                   | デフォルト値           |
+| ---------------------- | -------------------------------------- | ---------------------- |
+| `IS_HEADLESS`          | ヘッドレスモードで実行                 | `false`                |
+| `IS_IGNORE_COOKIE`     | クッキーを無視                         | `false`                |
+| `CHROMIUM_PATH`        | Chromiumのパス                         | -                      |
+| `PRODUCTS_PATH`        | 商品情報の保存パス                     | `data/products.json`   |
+| `ID_MAPPING_PATH`      | IDマッピングの保存パス                 | `data/id_linking.json` |
+| `LINKED_ITEMS_PATH`    | リンク済みアイテムの保存パス           | `data/linked_items.md` |
+| `COOKIE_PATH`          | クッキーの保存パス                     | `data/cookies.json`    |
+| `CACHE_DIR`            | キャッシュディレクトリ                 | `data/cache/`          |
+| `DOWNLOADED_ITEMS_DIR` | ダウンロードアイテムの保存ディレクトリ | `data/items/`          |
+| `NEW_DIR`              | 新着アイテムの保存ディレクトリ         | `data/new/`            |
+| `DISCORD_WEBHOOK_URL`  | Discord Webhook URL                    | -                      |
+| `VPM_REPOSITORY_DIR`   | VPMリポジトリディレクトリ              | `data/vpm-repository/` |
+| `VPM_ENABLED`          | VPM変換を有効化                        | `true`                 |
+| `VPM_BASE_URL`         | VPMベースURL                           | -                      |
+| `FREE_ITEMS_PATH`      | 無料アイテムリストのパス               | `data/free-items.json` |
+| `WISHLIST_IDS`         | 欲しいものリストID（カンマ区切り）     | -                      |
 
 ## 無料アイテム設定
 
@@ -76,10 +76,7 @@ docker run -e WISHLIST_IDS="KAaTPPrr,other_id" ...
 
 ```json
 {
-  "freeItems": [
-    "1234567",
-    "2345678"
-  ]
+  "freeItems": ["1234567", "2345678"]
 }
 ```
 
