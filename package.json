@@ -11,7 +11,7 @@
     "@book000/node-utils": "1.24.53",
     "@jest/globals": "30.2.0",
     "@types/jest": "30.0.0",
-    "@types/node": "25.2.1",
+    "@types/node": "25.2.2",
     "@types/yauzl": "2.10.3",
     "axios": "1.13.4",
     "eslint": "10.0.0",
