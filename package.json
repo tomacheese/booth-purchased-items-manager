@@ -7,7 +7,7 @@
     "url": "https://github.com/tomacheese/booth-purchased-items-manager/issues"
   },
   "devDependencies": {
-    "@book000/eslint-config": "1.13.20",
+    "@book000/eslint-config": "1.13.21",
     "@book000/node-utils": "1.24.97",
     "@jest/globals": "30.3.0",
     "@types/jest": "30.0.0",
