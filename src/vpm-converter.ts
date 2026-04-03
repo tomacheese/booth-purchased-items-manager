@@ -128,10 +128,10 @@ export class VpmConverter {
               )
             }
           }
-        } catch (error) {
+        } catch (err) {
           this.logger.error(
             `Failed to convert ${item.itemName}:`,
-            error instanceof Error ? error : new Error(String(error))
+            err instanceof Error ? err : new Error(String(err))
           )
         }
       }
@@ -251,10 +251,10 @@ export class VpmConverter {
       }
 
       return manifest
-    } catch (error) {
+    } catch (err) {
       this.logger.error(
         `Error converting UnityPackage to VPM:`,
-        error instanceof Error ? error : new Error(String(error))
+        err instanceof Error ? err : new Error(String(err))
       )
       return null
     }
@@ -313,9 +313,9 @@ export class VpmConverter {
           )
           return contentIdentifier
         }
-      } catch (error) {
+      } catch (err) {
         this.logger.warn(
-          `Failed to analyze ZIP content for ${packagePath}: ${String(error)}`
+          `Failed to analyze ZIP content for ${packagePath}: ${String(err)}`
         )
       }
     }
@@ -761,16 +761,16 @@ export class VpmConverter {
       })
 
       this.logger.info(`Created VPM package: ${path.basename(targetZipPath)}`)
-    } catch (error) {
+    } catch (err) {
       this.logger.error(
-        `Failed to create VPM package: ${String(error)}`,
-        error instanceof Error ? error : new Error(String(error))
+        `Failed to create VPM package: ${String(err)}`,
+        err instanceof Error ? err : new Error(String(err))
       )
       // エラーの場合は簡単な構造でフォールバック（設定で有効な場合のみ）
       if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
         this.createFallbackPackage(sourcePath, targetZipPath, manifest)
       } else {
-        throw error
+        throw err
       }
     } finally {
       // 一時ディレクトリを削除
@@ -824,9 +824,9 @@ export class VpmConverter {
       // yauzlライブラリを使用してZIPを展開
       try {
         await this.extractZipWithYauzl(zipPath, extractDir)
-      } catch (error) {
+      } catch (err) {
         this.logger.warn(
-          `yauzl extraction failed, trying fallback: ${String(error)}`
+          `yauzl extraction failed, trying fallback: ${String(err)}`
         )
         // フォールバック: 従来のunzipコマンド
         execSync(`unzip -q -o "${zipPath}" -d "${extractDir}"`, {
@@ -930,10 +930,8 @@ export class VpmConverter {
           fs.copyFileSync(filePath, targetPath)
         }
       }
-    } catch (error) {
-      this.logger.warn(
-        `Failed to organize UnityPackage assets: ${String(error)}`
-      )
+    } catch (err) {
+      this.logger.warn(`Failed to organize UnityPackage assets: ${String(err)}`)
       // フォールバック: すべてのファイルをRuntimeに配置
       this.copyAllAssetsToRuntime(extractedDir, runtimeDir)
     }
@@ -969,10 +967,8 @@ export class VpmConverter {
           }
         }
       }
-    } catch (error) {
-      this.logger.warn(
-        `Failed to parse UnityPackage structure: ${String(error)}`
-      )
+    } catch (err) {
+      this.logger.warn(`Failed to parse UnityPackage structure: ${String(err)}`)
     }
 
     return assetPaths
@@ -1015,8 +1011,8 @@ export class VpmConverter {
       execSync(`cp -r "${sourceDir}"/* "${runtimeDir}"/`, {
         stdio: 'inherit',
       })
-    } catch (error) {
-      this.logger.warn(`Failed to copy assets to Runtime: ${String(error)}`)
+    } catch (err) {
+      this.logger.warn(`Failed to copy assets to Runtime: ${String(err)}`)
     }
   }
 
@@ -1093,13 +1089,13 @@ export class VpmConverter {
       })
 
       this.logger.info('Created fallback package')
-    } catch (error) {
-      this.logger.error(`Failed to create fallback package: ${String(error)}`)
+    } catch (err) {
+      this.logger.error(`Failed to create fallback package: ${String(err)}`)
       // 最終フォールバック（設定で有効な場合のみ）
       if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
         fs.copyFileSync(sourcePath, targetZipPath)
       } else {
-        throw error
+        throw err
       }
     } finally {
       if (fs.existsSync(tempDir)) {
@@ -1286,10 +1282,10 @@ export class VpmConverter {
           `Found ${unityPackageFiles.length} UnityPackage(s): ${unityPackageFiles.join(', ')}`
         )
         return unityPackagePaths
-      } catch (error) {
+      } catch (err) {
         this.logger.error(
           `Failed to extract ZIP file: ${packagePath}`,
-          error instanceof Error ? error : new Error(String(error))
+          err instanceof Error ? err : new Error(String(err))
         )
         // フォールバック: 従来のunzipコマンドを試行
         return this.fallbackUnzipExtraction(packagePath, extractDir)
@@ -1397,8 +1393,8 @@ export class VpmConverter {
         `Could not decode filename, using original: ${fileName}`
       )
       return fileName
-    } catch (error) {
-      this.logger.debug(`Error decoding filename ${fileName}: ${String(error)}`)
+    } catch (err) {
+      this.logger.debug(`Error decoding filename ${fileName}: ${String(err)}`)
       return fileName
     }
   }
@@ -1440,8 +1436,8 @@ export class VpmConverter {
         `Found ${unityPackageFiles.length} UnityPackage(s) with fallback method`
       )
       return unityPackageFiles
-    } catch (error) {
-      this.logger.error(`Fallback unzip also failed: ${String(error)}`)
+    } catch (err) {
+      this.logger.error(`Fallback unzip also failed: ${String(err)}`)
       return [packagePath]
     }
   }
@@ -2027,8 +2023,8 @@ export class VpmConverter {
     if (fs.existsSync(metadataPath)) {
       try {
         existingMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
-      } catch (error) {
-        this.logger.warn(`Failed to read metadata: ${String(error)}`)
+      } catch (err) {
+        this.logger.warn(`Failed to read metadata: ${String(err)}`)
       }
     }
 
@@ -2164,8 +2160,8 @@ export class VpmConverter {
           stdio: 'inherit',
         })
         this.logger.info('Backup completed successfully')
-      } catch (error) {
-        this.logger.error(`Backup failed: ${String(error)}`)
+      } catch (err) {
+        this.logger.error(`Backup failed: ${String(err)}`)
         throw new Error('Failed to backup existing repository')
       }
     }

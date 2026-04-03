@@ -124,8 +124,8 @@ export class BoothRequest {
         validateStatus: () => true,
       })
       return response.status === 200
-    } catch (error) {
-      console.error('Error in checkLogin:', error)
+    } catch (err) {
+      console.error('Error in checkLogin:', err)
       return false
     }
   }
