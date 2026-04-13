@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { BoothRequest, BoothParser } from './booth'
-import axios from 'axios'
 import fs from 'node:fs'
 import puppeteer, { Cookie } from 'puppeteer-core'
 import { jest } from '@jest/globals'
 
-jest.mock('axios')
 jest.mock('puppeteer-core', () => ({
   launch: jest.fn().mockImplementation(() => ({
     setCookie: jest.fn(),
@@ -37,15 +35,37 @@ jest.mock('node:fs', () => ({
   mkdirSync: jest.fn(),
 }))
 
-const mockAxios = axios as jest.Mocked<typeof axios>
 const mockFs = fs as jest.Mocked<typeof fs>
 const mockPuppeteer = puppeteer as jest.Mocked<typeof puppeteer>
 
+function makeFetchResponse(
+  status: number,
+  body: string | ArrayBuffer
+): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    text: () => Promise.resolve(typeof body === 'string' ? body : ''),
+    json: () =>
+      Promise.resolve(typeof body === 'string' ? JSON.parse(body) : {}),
+    arrayBuffer: () =>
+      Promise.resolve(typeof body === 'string' ? new ArrayBuffer(0) : body),
+    headers: new Headers(),
+  } as unknown as Response
+}
+
 describe('BoothRequest', () => {
   let boothRequest: BoothRequest
+  let fetchMock: jest.MockedFunction<typeof fetch>
 
   beforeEach(() => {
     jest.clearAllMocks()
+    fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        makeFetchResponse(200, '')
+      ) as unknown as jest.MockedFunction<typeof fetch>
     boothRequest = new BoothRequest()
   })
 
@@ -55,7 +75,7 @@ describe('BoothRequest', () => {
 
   // ログイン状態の確認が正しく行われるかをテスト
   test('should check login status', async () => {
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: '' })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, ''))
     const isLoggedIn = await boothRequest.checkLogin()
     expect(isLoggedIn).toBe(true)
   })
@@ -109,10 +129,10 @@ describe('BoothRequest', () => {
   // ライブラリページが正しく取得できるかをテスト
   test('should fetch library page', async () => {
     const mockHtml = '<html><body>Library Page</body></html>'
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, mockHtml))
     const response = await boothRequest.getLibraryPage(1)
     expect(response.data).toBe(mockHtml)
-    expect(mockAxios.get).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       'https://accounts.booth.pm/library?page=1',
       expect.objectContaining({ headers: expect.anything() })
     )
@@ -121,10 +141,10 @@ describe('BoothRequest', () => {
   // ギフトページが正しく取得できるかをテスト
   test('should fetch library gifts page', async () => {
     const mockHtml = '<html><body>Gifts Page</body></html>'
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, mockHtml))
     const response = await boothRequest.getLibraryGiftsPage(2)
     expect(response.data).toBe(mockHtml)
-    expect(mockAxios.get).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       'https://accounts.booth.pm/library/gifts?page=2',
       expect.objectContaining({ headers: expect.anything() })
     )
@@ -133,47 +153,47 @@ describe('BoothRequest', () => {
   // 商品ページが正しく取得できるかをテスト
   test('should fetch product page', async () => {
     const mockHtml = '<html><body>Product Page</body></html>'
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockHtml })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, mockHtml))
     const response = await boothRequest.getProductPage('12345')
     expect(response.data).toBe(mockHtml)
-    expect(mockAxios.get).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       'https://booth.pm/ja/items/12345',
       expect.objectContaining({ headers: expect.anything() })
     )
   })
 
   // アイテムが正しく取得できるかをテスト
-  test('should fetch item', async () => {
-    const mockData = Buffer.from('mock item data')
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: mockData })
-    const response = await boothRequest.getItem('12345')
-    expect(response.data).toBe(mockData)
-    expect(mockAxios.get).toHaveBeenCalledWith(
-      'https://booth.pm/downloadables/12345',
-      expect.objectContaining({
-        headers: expect.anything(),
-        responseType: 'arraybuffer',
-      })
+  test('should handle network error', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('Network error'))
+    await expect(boothRequest.getPublicWishlistJson('id', 1)).rejects.toThrow(
+      'Network error'
     )
   })
 
-  // getItemでエラーが発生した場合の挙動をテスト
-  test('should handle axios error in getItem', async () => {
-    const boothRequest = new BoothRequest()
-    mockAxios.get.mockRejectedValueOnce(new Error('network error'))
-    await expect(boothRequest.getItem('99999')).rejects.toThrow('network error')
+  test('should fetch item', async () => {
+    const mockData = new ArrayBuffer(8)
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, mockData))
+    const response = await boothRequest.getItem('12345')
+    expect(response.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://booth.pm/downloadables/12345',
+      expect.objectContaining({ headers: expect.anything() })
+    )
   })
 
   // ログインチェックが成功した場合にtrueを返すかをテスト
   test('should return true if login check is successful', async () => {
-    mockAxios.get.mockResolvedValueOnce({ status: 200, data: '' })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, ''))
     const result = await boothRequest.checkLogin()
     expect(result).toBe(true)
   })
 
   // ログインチェックが失敗した場合にfalseを返すかをテスト
   test('should return false if login check fails', async () => {
-    mockAxios.get.mockResolvedValueOnce({ status: 401, data: '' })
+    jest.spyOn(console, 'error').mockImplementation(() => {
+      // suppress console.error noise in tests
+    })
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(401, ''))
     const result = await boothRequest.checkLogin()
     expect(result).toBe(false)
   })
