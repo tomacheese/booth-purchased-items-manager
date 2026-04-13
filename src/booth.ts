@@ -1,6 +1,5 @@
 import puppeteer, { Cookie, LaunchOptions } from 'puppeteer-core'
 import fs from 'node:fs'
-import axios from 'axios'
 import { parse as parseHtml } from 'node-html-parser'
 import { Environment } from './environment'
 
@@ -116,14 +115,14 @@ export class BoothRequest {
   async checkLogin() {
     try {
       const url = 'https://accounts.booth.pm/settings'
-      const response = await axios.get<string>(url, {
+      const res = await fetch(url, {
         headers: {
           Cookie: this.getCookieString(),
         },
-        maxRedirects: 0,
-        validateStatus: () => true,
+        redirect: 'manual',
       })
-      return response.status === 200
+      if (!res.ok && res.status !== 302) throw new Error(res.statusText)
+      return res.status === 200
     } catch (error) {
       console.error('Error in checkLogin:', error)
       return false
@@ -137,12 +136,12 @@ export class BoothRequest {
    */
   async getLibraryPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library?page=${pageNumber}`
-    const response = await axios.get<string>(url, {
+    const res = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return response
+    return { status: res.status, data: await res.text() }
   }
 
   /**
@@ -152,12 +151,12 @@ export class BoothRequest {
    */
   async getLibraryGiftsPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library/gifts?page=${pageNumber}`
-    const response = await axios.get<string>(url, {
+    const res = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return response
+    return { status: res.status, data: await res.text() }
   }
 
   /**
@@ -167,13 +166,12 @@ export class BoothRequest {
    */
   async getProductPage(productId: string) {
     const url = `https://booth.pm/ja/items/${productId}`
-    const response = await axios.get<string>(url, {
+    const res = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
-      validateStatus: () => true,
     })
-    return response
+    return { status: res.status, data: await res.text() }
   }
 
   /**
@@ -183,13 +181,12 @@ export class BoothRequest {
    */
   async getItem(itemId: string) {
     const url = `https://booth.pm/downloadables/${itemId}`
-    const response = await axios.get<ArrayBuffer>(url, {
+    const res = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
-      responseType: 'arraybuffer',
     })
-    return response
+    return { status: res.status, data: await res.arrayBuffer() }
   }
 
   /**
@@ -200,12 +197,12 @@ export class BoothRequest {
    */
   async getPublicWishlistJson(wishlistId: string, pageNumber: number) {
     const url = `https://api.booth.pm/frontend/wish_list_names/${wishlistId}/items.json?page=${pageNumber}`
-    const response = await axios.get(url, {
+    const res = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return response
+    return { status: res.status, data: await res.json() }
   }
 
   /**

@@ -10,7 +10,6 @@ import { BoothRequest, BoothParser, BoothProduct } from './booth'
 import { PageCache } from './pagecache'
 import { Environment } from './environment'
 import fs from 'node:fs'
-import axios from 'axios'
 import { jest } from '@jest/globals'
 import path from 'node:path'
 import os from 'node:os'
@@ -62,7 +61,6 @@ jest.mock('node:fs', () => ({
   })),
 }))
 
-jest.mock('axios')
 jest.mock('./environment')
 jest.mock('puppeteer-core', () => ({
   launch: jest.fn().mockImplementation(() => ({
@@ -156,26 +154,6 @@ describe('Main Functions', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {})
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
-    jest.spyOn(axios, 'get').mockImplementation((url: string) => {
-      if (url.includes('/library?page=')) {
-        return Promise.resolve({
-          status: 200,
-          data: '<html>Mock Library Page</html>',
-          statusText: 'OK',
-          headers: {},
-          config: {},
-        })
-      } else if (url.includes('/library/gifts?page=')) {
-        return Promise.resolve({
-          status: 200,
-          data: '<html>Mock Gift Page</html>',
-          statusText: 'OK',
-          headers: {},
-          config: {},
-        })
-      }
-      return Promise.reject(new Error('Unknown URL'))
-    })
     // fetchPurchased系テスト用: loadOrFetchはHTML文字列を返すように
     jest
       .spyOn(pageCache, 'loadOrFetch')
