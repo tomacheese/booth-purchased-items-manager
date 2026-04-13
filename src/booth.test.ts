@@ -163,6 +163,13 @@ describe('BoothRequest', () => {
   })
 
   // アイテムが正しく取得できるかをテスト
+  test('should handle network error', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('Network error'))
+    await expect(boothRequest.getPublicWishlistJson('id', 1)).rejects.toThrow(
+      'Network error'
+    )
+  })
+
   test('should fetch item', async () => {
     const mockData = new ArrayBuffer(8)
     fetchMock.mockResolvedValueOnce(makeFetchResponse(200, mockData))
@@ -183,6 +190,9 @@ describe('BoothRequest', () => {
 
   // ログインチェックが失敗した場合にfalseを返すかをテスト
   test('should return false if login check fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {
+      // suppress console.error noise in tests
+    })
     fetchMock.mockResolvedValueOnce(makeFetchResponse(401, ''))
     const result = await boothRequest.checkLogin()
     expect(result).toBe(false)
