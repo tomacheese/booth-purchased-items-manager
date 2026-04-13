@@ -62,7 +62,7 @@ describe('BoothRequest', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     fetchMock = jest
-      .spyOn(global, 'fetch')
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValue(
         makeFetchResponse(200, '')
       ) as unknown as jest.MockedFunction<typeof fetch>
