@@ -174,7 +174,7 @@ describe('VpmConverter', () => {
           close: jest.fn(),
         } as unknown as yauzl.ZipFile
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        cb(null, mockZipfile as unknown as yauzl.ZipFile)
+        cb(null, mockZipfile)
       }
     }) as any)
 
@@ -372,7 +372,7 @@ describe('VpmConverter', () => {
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          cb(null, mockZipfile as unknown as yauzl.ZipFile)
+          cb(null, mockZipfile)
         }
       }) as any)
 
@@ -391,34 +391,32 @@ describe('VpmConverter', () => {
       ]
 
       let entryIndex = 0
-      ;(mockZipfile.on as jest.Mock).mockImplementation(
-        (...args: unknown[]) => {
-          const [event, handler] = args as [string, (entry?: unknown) => void]
-          if (event === 'entry' && entryIndex < entries.length) {
-            // Simulate entry events
-            Promise.resolve()
-              .then(() => {
-                handler(entries[entryIndex])
-                entryIndex++
-                if (entryIndex < entries.length) {
-                  mockZipfile.readEntry()
-                }
-              })
-              .catch(() => {
-                // ignore error
-              })
-          } else if (event === 'end') {
-            // Simulate end event
-            Promise.resolve()
-              .then(() => {
-                handler()
-              })
-              .catch(() => {
-                // ignore error
-              })
-          }
+      mockZipfile.on.mockImplementation((...args: unknown[]) => {
+        const [event, handler] = args as [string, (entry?: unknown) => void]
+        if (event === 'entry' && entryIndex < entries.length) {
+          // Simulate entry events
+          Promise.resolve()
+            .then(() => {
+              handler(entries[entryIndex])
+              entryIndex++
+              if (entryIndex < entries.length) {
+                mockZipfile.readEntry()
+              }
+            })
+            .catch(() => {
+              // ignore error
+            })
+        } else if (event === 'end') {
+          // Simulate end event
+          Promise.resolve()
+            .then(() => {
+              handler()
+            })
+            .catch(() => {
+              // ignore error
+            })
         }
-      )
+      })
 
       mockZipfile.readEntry.mockImplementation(() => {
         // Trigger next entry
@@ -538,7 +536,7 @@ describe('VpmConverter', () => {
 
       // Mock finding unity packages after fallback extraction
       mockFs.readdirSync
-        .mockReturnValueOnce([] as any) // First call in findUnityPackageFiles
+        .mockReturnValueOnce([]) // First call in findUnityPackageFiles
         .mockReturnValueOnce(['extracted.unitypackage'] as any) // After fallback
 
       await vpmConverter.convertBoothItemsToVpm(products)
@@ -597,7 +595,7 @@ describe('VpmConverter', () => {
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          cb(null, mockZipfile as unknown as yauzl.ZipFile)
+          cb(null, mockZipfile)
         }
       }) as any)
 
@@ -624,22 +622,20 @@ describe('VpmConverter', () => {
       )
 
       // Simulate directory entry
-      ;(mockZipfile.on as jest.Mock).mockImplementation(
-        (...args: unknown[]) => {
-          const [event, handler] = args as [string, (entry?: unknown) => void]
-          if (event === 'entry') {
-            handler({ fileName: 'test/' })
-          } else if (event === 'end') {
-            Promise.resolve()
-              .then(() => {
-                handler()
-              })
-              .catch(() => {
-                // ignore error
-              })
-          }
+      mockZipfile.on.mockImplementation((...args: unknown[]) => {
+        const [event, handler] = args as [string, (entry?: unknown) => void]
+        if (event === 'entry') {
+          handler({ fileName: 'test/' })
+        } else if (event === 'end') {
+          Promise.resolve()
+            .then(() => {
+              handler()
+            })
+            .catch(() => {
+              // ignore error
+            })
         }
-      )
+      })
 
       await vpmConverter.convertBoothItemsToVpm(products)
 
