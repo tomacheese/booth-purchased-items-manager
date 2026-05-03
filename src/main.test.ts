@@ -135,19 +135,19 @@ describe('Main Functions', () => {
     jest.spyOn(boothRequest, 'getLibraryPage').mockResolvedValue({
       status: 200,
       data: '<html></html>',
-    } as any)
+    })
     jest.spyOn(boothRequest, 'getLibraryGiftsPage').mockResolvedValue({
       status: 200,
       data: '<html></html>',
-    } as any)
+    })
     jest.spyOn(boothRequest, 'getPublicWishlistJson').mockResolvedValue({
       status: 200,
       data: { items: [] },
-    } as any)
+    })
     jest.spyOn(boothRequest, 'getProductPage').mockResolvedValue({
       status: 200,
       data: '<html>Mock Product Page</html>',
-    } as any)
+    })
 
     boothParser = new BoothParser()
     pageCache = new PageCache()
@@ -178,17 +178,17 @@ describe('Main Functions', () => {
       getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: `<html>Product 1</html>`,
-      } as any)
+      })
       // libraryページ2（空）
       getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       // giftページ1（空）
       getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       jest
         .spyOn(boothParser, 'parseLibraryPage')
         .mockImplementation((html: string) => {
@@ -237,11 +237,11 @@ describe('Main Functions', () => {
       getLibraryPageSpy.mockResolvedValue({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       getLibraryGiftsPageSpy.mockResolvedValue({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       const loginMock = jest
         .spyOn(boothRequest, 'login')
         .mockResolvedValueOnce()
@@ -271,22 +271,22 @@ describe('Main Functions', () => {
       getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>library page 1</html>',
-      } as any)
+      })
       // libraryページ2（空）
       getLibraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       // giftページ1
       getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>gift page</html>',
-      } as any)
+      })
       // giftページ2（空）
       getLibraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
-      } as any)
+      })
       jest
         .spyOn(pageCache, 'loadOrFetch')
         .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
@@ -893,11 +893,11 @@ describe('Main Functions', () => {
         .mockResolvedValueOnce({
           status: 200,
           data: mockWishlistJson1,
-        } as any)
+        })
         .mockResolvedValueOnce({
           status: 200,
           data: mockWishlistJson2,
-        } as any)
+        })
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
@@ -988,10 +988,10 @@ describe('Main Functions', () => {
 
       jest
         .spyOn(boothRequest, 'getPublicWishlistJson')
-        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson1 } as any)
-        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
-        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson2 } as any)
-        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist } as any)
+        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson1 })
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist })
+        .mockResolvedValueOnce({ status: 200, data: mockWishlistJson2 })
+        .mockResolvedValueOnce({ status: 200, data: mockEmptyWishlist })
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
