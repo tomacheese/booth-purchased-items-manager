@@ -5,6 +5,7 @@
     "moduleResolution": "Node",
     "lib": ["ESNext", "esnext.AsyncIterable", "DOM"],
     "outDir": "./dist",
+    "rootDir": ".",
     "removeComments": true,
     "esModuleInterop": true,
     "allowJs": true,
@@ -26,7 +27,8 @@
     "newLine": "LF",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*", "__mocks__/**/*"]
 }
