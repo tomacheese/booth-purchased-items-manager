@@ -1,4 +1,5 @@
-FROM zenika/alpine-chrome:with-puppeteer-xvfb AS runner
+# pnpm v11 は Node.js 22+ が必要なため、node:22-alpine をベースイメージとして使用する
+FROM node:22-alpine
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME/bin:$PATH"
@@ -6,14 +7,24 @@ ENV PATH="$PNPM_HOME/bin:$PATH"
 # hadolint ignore=DL3002
 USER root
 
-# hadolint ignore=DL3018,DL3016
+# hadolint ignore=DL3018
 RUN apk upgrade --no-cache --available && \
   apk update && \
-  apk add --update --no-cache tzdata x11vnc zip unzip && \
+  apk add --update --no-cache \
+    chromium \
+    chromium-swiftshader \
+    ttf-freefont \
+    font-noto-emoji \
+    font-wqy-zenhei \
+    tini \
+    xvfb \
+    x11vnc \
+    tzdata \
+    zip \
+    unzip && \
   cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
   echo "Asia/Tokyo" > /etc/timezone && \
   apk del tzdata && \
-  npm install -g corepack && \
   corepack enable
 
 WORKDIR /app
