@@ -1,5 +1,5 @@
 # pnpm v11 は Node.js 22+ が必要なため、node:22-alpine をベースイメージとして使用する
-FROM node:22-alpine
+FROM node:24-alpine
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME/bin:$PATH"
