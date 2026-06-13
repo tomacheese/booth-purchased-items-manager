@@ -161,7 +161,7 @@ describe('generateLinkedList', () => {
     )
 
     // Check that Product 1 section doesn't have incoming links
-    const product1Section = generatedMarkdown.split('## Product 2')[0]
+    const product1Section = generatedMarkdown.split('## Product 2', 2)[0]
     expect(product1Section).not.toContain('### 被リンク')
 
     // Product 2 should have only incoming link from Product 1, no outgoing links
@@ -172,7 +172,7 @@ describe('generateLinkedList', () => {
     )
 
     // Check that Product 2 section doesn't have outgoing links
-    const product2Section = generatedMarkdown.split('## Product 2')[1]
+    const product2Section = generatedMarkdown.split('## Product 2', 2)[1]
     expect(product2Section).not.toContain('### リンク先')
 
     // Product 3 should not appear (no links)
@@ -252,11 +252,11 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toContain('### 被リンク')
 
     // Check that Product 2 appears once in each section for Product 1
-    const product1Section = generatedMarkdown.split('## Product 2')[0]
+    const product1Section = generatedMarkdown.split('## Product 2', 2)[0]
     const outgoingSection = product1Section
-      .split('### リンク先')[1]
-      .split('### 被リンク')[0]
-    const incomingSection = product1Section.split('### 被リンク')[1]
+      .split('### リンク先', 2)[1]
+      .split('### 被リンク', 2)[0]
+    const incomingSection = product1Section.split('### 被リンク', 2)[1]
 
     expect(outgoingSection).toContain(
       '- [Product 2](https://booth.pm/ja/items/222)'
@@ -267,7 +267,7 @@ describe('generateLinkedList', () => {
 
     // Product 2 should have outgoing link to Product 1 and incoming link from Product 1
     expect(generatedMarkdown).toContain('## Product 2 (222)')
-    const product2Section = generatedMarkdown.split('## Product 2')[1]
+    const product2Section = generatedMarkdown.split('## Product 2', 2)[1]
     if (product2Section) {
       expect(product2Section).toContain('### リンク先')
       expect(product2Section).toContain('### 被リンク')
