@@ -64,8 +64,8 @@ importers:
         specifier: 3.9.4
         version: 3.9.4
       puppeteer-core:
-        specifier: 25.2.1
-        version: 25.2.1
+        specifier: 25.3.0
+        version: 25.3.0(yauzl@3.4.0)
       run-z:
         specifier: 2.1.0
         version: 2.1.0
@@ -613,14 +613,17 @@ packages:
     resolution: {integrity: sha512-SEeaJLb3qBNF/OaXnaR1NmmBbFYk1zC0ZH/52fATcRPLFg/p791YrcyFFy44Bo9sLaGuSuLp5Q6axbb/O+v/RA==}
     engines: {node: ^14.18.0 || >=16.0.0}
 
-  '@puppeteer/browsers@3.0.5':
-    resolution: {integrity: sha512-xYXNuEQmHNIPWWcbL/skf2KF7seyp7c1xmKFRk3wmdFx7VwBsKVrtOLKs8ecaezsKPsWeF1YsgwIiElAscaryA==}
+  '@puppeteer/browsers@3.0.6':
+    resolution: {integrity: sha512-B/gKoqlFkzhvzsI6jo9K1cZz9o5ypviVv/xu8CwA4grZzyVwN+XfkT+tu8T1zrauuEXv6VhS2oGX+6NL95WcKA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
       proxy-agent: '>=8.0.1'
+      yauzl: ^2.10.0 || ^3.4.0
     peerDependenciesMeta:
       proxy-agent:
+        optional: true
+      yauzl:
         optional: true
 
   '@rtsao/scc@1.1.0':
@@ -2473,8 +2476,8 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
-  puppeteer-core@25.2.1:
-    resolution: {integrity: sha512-MwEZ4FFGJ1ZLOmu/04eISxoEMKtCnHyJBRFfgpwPPSYNG6gT6Xw1laNziFSV7uwDcx3jK+ATYIo9SfOd8Uhc3w==}
+  puppeteer-core@25.3.0:
+    resolution: {integrity: sha512-fm+wpUr2oigH1PXZvwgATrM2tYWHMDG8ASzTEe9uukCye4X5Ldx1K5BTHPFKITrIWvQQAQ256d1NpbEveBcKjA==}
     engines: {node: '>=22.12.0'}
 
   pure-rand@7.0.1:
@@ -3634,10 +3637,12 @@ snapshots:
 
   '@pkgr/core@0.3.6': {}
 
-  '@puppeteer/browsers@3.0.5':
+  '@puppeteer/browsers@3.0.6(yauzl@3.4.0)':
     dependencies:
       modern-tar: 0.7.6
       yargs: 18.0.0
+    optionalDependencies:
+      yauzl: 3.4.0
 
   '@rtsao/scc@1.1.0': {}
 
@@ -5862,9 +5867,9 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  puppeteer-core@25.2.1:
+  puppeteer-core@25.3.0(yauzl@3.4.0):
     dependencies:
-      '@puppeteer/browsers': 3.0.5
+      '@puppeteer/browsers': 3.0.6(yauzl@3.4.0)
       chromium-bidi: 16.0.1(devtools-protocol@0.0.1638949)
       devtools-protocol: 0.0.1638949
       typed-query-selector: 2.12.2
@@ -5874,6 +5879,7 @@ snapshots:
       - bufferutil
       - proxy-agent
       - utf-8-validate
+      - yauzl
 
   pure-rand@7.0.1: {}
 
