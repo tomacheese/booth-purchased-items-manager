@@ -26,7 +26,7 @@
 - 言語: TypeScript
 - 実行環境: Node.js
 - パッケージマネージャー: pnpm
-- 主要ライブラリ: Puppeteer-core, Axios, Jest, ESLint, Prettier, tsx
+- 主要ライブラリ: puppeteer-core, node-html-parser, yauzl (ZIP 展開), iconv-lite, Jest, ESLint, Prettier, tsx
 
 ## コーディング規約
 
@@ -74,8 +74,6 @@ pnpm fix
 - 以下のファイルを変更に合わせて更新する:
   - `README.md`: ユーザー向けドキュメント
   - `CLAUDE.md`: Claude Code 向けガイド
-  - `GEMINI.md`: Gemini CLI 向けガイド
-  - `AGENTS.md`: AI エージェント全般向けガイド
 
 ## リポジトリ固有
 
