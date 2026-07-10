@@ -80,8 +80,9 @@ pnpm fix
   1. `booth.ts`: Puppeteer を使用したスクレイピング
   2. `main.ts`: 全体のオーケストレーション
   3. `vpm-converter.ts`: UnityPackage から VPM 形式への変換
-  4. `pagecache.ts`: キャッシュ層
-  5. `environment.ts`: 環境変数・設定管理
+  4. `generate-linked-list.ts`: 商品間のリンク関係の抽出
+  5. `pagecache.ts`: キャッシュ層
+  6. `environment.ts`: 環境変数・設定管理
 - **データフロー**:
   - Booth から商品情報を取得 → ダウンロード → 抽出・分析 → VPM マニフェスト生成 → リポジトリ構造作成
 
@@ -89,6 +90,12 @@ pnpm fix
 
 - 認証情報は `data/cookies.json` に永続化される。
 - VPM リポジトリの自動再構築ロジックが `vpm-converter.ts` に含まれている。
+
+## セキュリティ / 機密情報
+
+- `BOOTH_EMAIL`, `BOOTH_PASSWORD` などの認証情報をコードやコミットに含めない。
+- ログにパスワードやクッキーなどの機密情報を出力しない。
+- `.env` や `data/cookies.json` はコミット対象から除外する。
 
 ## テスト
 
@@ -100,8 +107,6 @@ pnpm fix
 - 以下のファイルを変更に合わせて更新する:
   - `README.md`
   - `.github/copilot-instructions.md`
-  - `GEMINI.md`
-  - `AGENTS.md`
 
 ## 作業チェックリスト
 
