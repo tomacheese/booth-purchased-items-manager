@@ -1,0 +1,19 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 2febc793f7b63a5ec7fb7b00f88656a68c69989e..e64f517773cf8467ab8313a713d340f345a4d2f4 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -374,13 +374,7 @@ declare class TextNode extends Node {
+ //#region src/index.d.ts
+ declare function parse(data: string, options?: Partial<Options>): HTMLElement;
+ declare namespace parse {
+-  var parse: typeof parse$1;
+-  var HTMLElement: typeof HTMLElement;
+-  var CommentNode: typeof CommentNode;
+-  var valid: typeof valid;
+-  var Node: typeof Node;
+-  var TextNode: typeof TextNode;
+-  var NodeType: typeof NodeType;
++  export { parse$1 as parse, HTMLElement, CommentNode, valid, Node, TextNode, NodeType };
+ }
+ //#endregion
+ export { CommentNode, HTMLElement, Node, NodeType, type Options, TextNode, parse as default, parse, valid };
