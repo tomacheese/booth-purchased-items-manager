@@ -92,20 +92,20 @@ export class PageCache {
    * @param type 種別
    * @param id ID
    * @param expireDays 有効日数 or null
-   * @param fetchFunc データ取得関数
+   * @param fetchFunction データ取得関数
    * @returns データ
    */
   async loadOrFetch<T>(
     type: string,
     id: string,
     expireDays: number | null,
-    fetchFunc: () => Promise<T>
+    fetchFunction: () => Promise<T>
   ): Promise<T> {
     const data = this.load(type, id, expireDays) as T | null
     if (data) {
       return data
     }
-    const newData = await fetchFunc()
+    const newData = await fetchFunction()
     this.save(type, id, newData)
     return newData
   }
@@ -117,11 +117,11 @@ export class PageCache {
    */
   list(type: string) {
     const path = this.getPath(type, '')
-    const dir = path.slice(0, Math.max(0, path.lastIndexOf('/')))
-    if (!fs.existsSync(dir)) {
+    const directory = path.slice(0, Math.max(0, path.lastIndexOf('/')))
+    if (!fs.existsSync(directory)) {
       return []
     }
-    const files = fs.readdirSync(dir, { withFileTypes: true })
+    const files = fs.readdirSync(directory, { withFileTypes: true })
     return files
       .filter((file) => file.isFile() && file.name.endsWith('.html'))
       .map((file) => file.name.replace('.html', ''))
@@ -163,10 +163,10 @@ export class PageCache {
    */
   private makeDir(type: string) {
     const path = this.getPath(type, '')
-    const dir = path.slice(0, Math.max(0, path.lastIndexOf('/')))
-    if (fs.existsSync(dir)) {
+    const directory = path.slice(0, Math.max(0, path.lastIndexOf('/')))
+    if (fs.existsSync(directory)) {
       return
     }
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(directory, { recursive: true })
   }
 }

@@ -53,14 +53,14 @@ describe('Environment', () => {
     mockFs.existsSync.mockReturnValue(true)
 
     // 内部実装をテストするために一時的に環境変数をオーバーライド
-    const originalEnv = process.env.CACHE_DIR
+    const originalEnvironment = process.env.CACHE_DIR
     process.env.CACHE_DIR = 'data/cache' // スラッシュなし
 
     const path = Environment.getPath('CACHE_DIR', 'test')
     expect(path).toBe('data/cache/test')
 
     // 元に戻す
-    process.env.CACHE_DIR = originalEnv
+    process.env.CACHE_DIR = originalEnvironment
   })
 
   // getValue の正常系テスト

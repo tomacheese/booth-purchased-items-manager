@@ -94,7 +94,7 @@ describe('Main Functions', () => {
   let boothRequest: BoothRequest
   let boothParser: BoothParser
   let pageCache: PageCache
-  let tempDir: string
+  let temporaryDirectory: string
   let loggerSpy: jest.SpiedFunction<typeof Logger.configure>
 
   beforeEach(() => {
@@ -114,7 +114,7 @@ describe('Main Functions', () => {
       } as any
     })
 
-    tempDir = path.join(os.tmpdir(), `booth-test-${Date.now()}`)
+    temporaryDirectory = path.join(os.tmpdir(), `booth-test-${Date.now()}`)
 
     // モックの設定
     mockFs.existsSync.mockReturnValue(false)
@@ -123,9 +123,9 @@ describe('Main Functions', () => {
     mockEnvironment.getPath.mockImplementation(
       (key: string, filename?: string) => {
         if (filename) {
-          return `${tempDir}/${key}/${filename}`
+          return `${temporaryDirectory}/${key}/${filename}`
         }
-        return `${tempDir}/${key}`
+        return `${temporaryDirectory}/${key}`
       }
     )
 
@@ -157,7 +157,9 @@ describe('Main Functions', () => {
     // fetchPurchased系テスト用: loadOrFetchはHTML文字列を返すように
     jest
       .spyOn(pageCache, 'loadOrFetch')
-      .mockImplementation((_type, _id, _expireDays, fetchFunc) => fetchFunc())
+      .mockImplementation((_type, _id, _expireDays, fetchFunction) =>
+        fetchFunction()
+      )
   })
 
   afterEach(() => {
@@ -167,25 +169,25 @@ describe('Main Functions', () => {
   describe('fetchPurchased', () => {
     // ユーザーがログイン済みの場合の購入済み商品取得テスト
     test('should fetch purchased items when user is logged in', async () => {
-      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
-      const getLibraryGiftsPageSpy = jest.spyOn(
+      const libraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const libraryGiftsPageSpy = jest.spyOn(
         boothRequest,
         'getLibraryGiftsPage'
       )
-      getLibraryPageSpy.mockReset()
-      getLibraryGiftsPageSpy.mockReset()
+      libraryPageSpy.mockReset()
+      libraryGiftsPageSpy.mockReset()
       // libraryページ1
-      getLibraryPageSpy.mockResolvedValueOnce({
+      libraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: `<html>Product 1</html>`,
       })
       // libraryページ2（空）
-      getLibraryPageSpy.mockResolvedValueOnce({
+      libraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
       })
       // giftページ1（空）
-      getLibraryGiftsPageSpy.mockResolvedValueOnce({
+      libraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
       })
@@ -226,19 +228,19 @@ describe('Main Functions', () => {
 
     // ログインしていない場合にログイン処理が呼ばれるかのテスト
     test('should attempt to login if user is not logged in', async () => {
-      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
-      const getLibraryGiftsPageSpy = jest.spyOn(
+      const libraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const libraryGiftsPageSpy = jest.spyOn(
         boothRequest,
         'getLibraryGiftsPage'
       )
-      getLibraryPageSpy.mockReset()
-      getLibraryGiftsPageSpy.mockReset()
+      libraryPageSpy.mockReset()
+      libraryGiftsPageSpy.mockReset()
       // libraryページ（正常）
-      getLibraryPageSpy.mockResolvedValue({
+      libraryPageSpy.mockResolvedValue({
         status: 200,
         data: '<html></html>',
       })
-      getLibraryGiftsPageSpy.mockResolvedValue({
+      libraryGiftsPageSpy.mockResolvedValue({
         status: 200,
         data: '<html></html>',
       })
@@ -247,7 +249,9 @@ describe('Main Functions', () => {
         .mockResolvedValueOnce()
       jest
         .spyOn(pageCache, 'loadOrFetch')
-        .mockImplementation((_type, _id, _expireDays, fetchFunc) => fetchFunc())
+        .mockImplementation((_type, _id, _expireDays, fetchFunction) =>
+          fetchFunction()
+        )
       jest.spyOn(boothParser, 'parseLibraryPage').mockReturnValue([])
       // checkLogin: false→true
       const checkLoginMock = jest.spyOn(boothRequest, 'checkLogin')
@@ -260,46 +264,46 @@ describe('Main Functions', () => {
 
     // ライブラリ・ギフトページに複数商品がある場合のテスト
     test('should handle library and gift pages with multiple items', async () => {
-      const getLibraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
-      const getLibraryGiftsPageSpy = jest.spyOn(
+      const libraryPageSpy = jest.spyOn(boothRequest, 'getLibraryPage')
+      const libraryGiftsPageSpy = jest.spyOn(
         boothRequest,
         'getLibraryGiftsPage'
       )
-      getLibraryPageSpy.mockReset()
-      getLibraryGiftsPageSpy.mockReset()
+      libraryPageSpy.mockReset()
+      libraryGiftsPageSpy.mockReset()
       // libraryページ1
-      getLibraryPageSpy.mockResolvedValueOnce({
+      libraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>library page 1</html>',
       })
       // libraryページ2（空）
-      getLibraryPageSpy.mockResolvedValueOnce({
+      libraryPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
       })
       // giftページ1
-      getLibraryGiftsPageSpy.mockResolvedValueOnce({
+      libraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html>gift page</html>',
       })
       // giftページ2（空）
-      getLibraryGiftsPageSpy.mockResolvedValueOnce({
+      libraryGiftsPageSpy.mockResolvedValueOnce({
         status: 200,
         data: '<html></html>',
       })
       jest
         .spyOn(pageCache, 'loadOrFetch')
-        .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
-          fetchFunc()
+        .mockImplementationOnce((_type, _id, _expireDays, fetchFunction) =>
+          fetchFunction()
         )
-        .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
-          fetchFunc()
+        .mockImplementationOnce((_type, _id, _expireDays, fetchFunction) =>
+          fetchFunction()
         )
-        .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
-          fetchFunc()
+        .mockImplementationOnce((_type, _id, _expireDays, fetchFunction) =>
+          fetchFunction()
         )
-        .mockImplementationOnce((_type, _id, _expireDays, fetchFunc) =>
-          fetchFunc()
+        .mockImplementationOnce((_type, _id, _expireDays, fetchFunction) =>
+          fetchFunction()
         )
       jest
         .spyOn(boothParser, 'parseLibraryPage')
@@ -535,7 +539,9 @@ describe('Main Functions', () => {
       ]
 
       // Mock Environment.getPath
-      mockEnvironment.getPath.mockReturnValue(`${tempDir}/12345/67890.zip`)
+      mockEnvironment.getPath.mockReturnValue(
+        `${temporaryDirectory}/12345/67890.zip`
+      )
 
       // Mock file existence check
       mockFs.existsSync.mockReturnValue(false)
@@ -901,9 +907,9 @@ describe('Main Functions', () => {
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
-        .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
+        .mockImplementation(async (type, _id, _expiry, fetchFunction) => {
           if (type === 'wishlist') {
-            return fetchFunc()
+            return fetchFunction()
           }
           return mockProductHtml
         })
@@ -995,9 +1001,9 @@ describe('Main Functions', () => {
 
       jest
         .spyOn(pageCache, 'loadOrFetch')
-        .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
+        .mockImplementation(async (type, _id, _expiry, fetchFunction) => {
           if (type === 'wishlist') {
-            return fetchFunc()
+            return fetchFunction()
           }
           return '<html>Mock Product Page</html>'
         })

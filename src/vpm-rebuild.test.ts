@@ -74,10 +74,10 @@ describe('VpmConverter Auto Rebuild', () => {
 
     // バックアップが作成されているはず
     const files = fs.readdirSync('.')
-    const backupExists = files.some((file) =>
+    const isBackupExists = files.some((file) =>
       file.startsWith(`${TEST_REPO_DIR}.backup-`)
     )
-    expect(backupExists).toBe(true)
+    expect(isBackupExists).toBe(true)
 
     // メタデータが更新されているはず
     const newMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as {
@@ -101,10 +101,10 @@ describe('VpmConverter Auto Rebuild', () => {
 
     // バックアップは作成されないはず
     const files = fs.readdirSync('.')
-    const backupExists = files.some((file) =>
+    const isBackupExists = files.some((file) =>
       file.startsWith(`${TEST_REPO_DIR}.backup-`)
     )
-    expect(backupExists).toBe(false)
+    expect(isBackupExists).toBe(false)
 
     // メタデータのタイムスタンプが更新されているはず（チェック時に更新される）
     const newMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as {

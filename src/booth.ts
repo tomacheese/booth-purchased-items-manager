@@ -27,10 +27,12 @@ export class BoothRequest {
    * BoothRequestのインスタンスを生成し、クッキーが存在すれば読み込む
    */
   constructor() {
-    if (fs.existsSync(this.cookiesPath)) {
-      const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf8'))
-      this.cookies = cookies
+    if (!fs.existsSync(this.cookiesPath)) {
+      return
     }
+
+    const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf8'))
+    this.cookies = cookies
   }
 
   /**
@@ -115,14 +117,15 @@ export class BoothRequest {
   async checkLogin() {
     try {
       const url = 'https://accounts.booth.pm/settings'
-      const res = await fetch(url, {
+      const response = await fetch(url, {
         headers: {
           Cookie: this.getCookieString(),
         },
         redirect: 'manual',
       })
-      if (!res.ok && res.status !== 302) throw new Error(res.statusText)
-      return res.status === 200
+      if (!response.ok && response.status !== 302)
+        throw new Error(response.statusText)
+      return response.status === 200
     } catch (error) {
       console.error('Error in checkLogin:', error)
       return false
@@ -136,12 +139,12 @@ export class BoothRequest {
    */
   async getLibraryPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library?page=${pageNumber}`
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return { status: res.status, data: await res.text() }
+    return { status: response.status, data: await response.text() }
   }
 
   /**
@@ -151,12 +154,12 @@ export class BoothRequest {
    */
   async getLibraryGiftsPage(pageNumber: number) {
     const url = `https://accounts.booth.pm/library/gifts?page=${pageNumber}`
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return { status: res.status, data: await res.text() }
+    return { status: response.status, data: await response.text() }
   }
 
   /**
@@ -166,12 +169,12 @@ export class BoothRequest {
    */
   async getProductPage(productId: string) {
     const url = `https://booth.pm/ja/items/${productId}`
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return { status: res.status, data: await res.text() }
+    return { status: response.status, data: await response.text() }
   }
 
   /**
@@ -181,12 +184,12 @@ export class BoothRequest {
    */
   async getItem(itemId: string) {
     const url = `https://booth.pm/downloadables/${itemId}`
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return { status: res.status, data: await res.arrayBuffer() }
+    return { status: response.status, data: await response.arrayBuffer() }
   }
 
   /**
@@ -197,12 +200,12 @@ export class BoothRequest {
    */
   async getPublicWishlistJson(wishlistId: string, pageNumber: number) {
     const url = `https://api.booth.pm/frontend/wish_list_names/${wishlistId}/items.json?page=${pageNumber}`
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       headers: {
         Cookie: this.getCookieString(),
       },
     })
-    return { status: res.status, data: await res.json() }
+    return { status: response.status, data: await response.json() }
   }
 
   /**
@@ -226,23 +229,26 @@ export class BoothParser {
     const products = []
     const root = parseHtml(html)
     const productElements = root.querySelectorAll(
-      'main > div.w-full > div.mb-16'
+      ':scope main > div.w-full > div.mb-16'
     )
 
     for (const product of productElements) {
       const productName =
-        product.querySelector('a.no-underline > div')?.textContent.trim() ??
-        null
+        product
+          .querySelector(':scope a.no-underline > div')
+          ?.textContent.trim() ?? null
       const productURL =
         product.querySelector('a.no-underline')?.getAttribute('href') ?? null
       const thumbnailURL =
-        product.querySelector('a > img')?.getAttribute('src') ?? null
+        product.querySelector(':scope a > img')?.getAttribute('src') ?? null
       const shopName =
-        product.querySelector('a.no-underline + a > div')?.textContent.trim() ??
-        null
+        product
+          .querySelector(':scope a.no-underline + a > div')
+          ?.textContent.trim() ?? null
       const shopURL =
-        product.querySelector('a.no-underline + a')?.getAttribute('href') ??
-        null
+        product
+          .querySelector(':scope a.no-underline + a')
+          ?.getAttribute('href') ?? null
 
       const items = []
       const itemElements = product.querySelectorAll(
@@ -296,7 +302,7 @@ export class BoothParser {
   parseProductPage(html: string) {
     const root = parseHtml(html)
     const descriptionElements = root.querySelectorAll(
-      'section.main-info-column div.description'
+      ':scope section.main-info-column div.description'
     )
     const shopTextElements = root.querySelectorAll('section.shop__text')
     const mergedElements = [...descriptionElements, ...shopTextElements]

@@ -94,12 +94,11 @@ export class Environment {
   public static getValue<T extends keyof Environment['env']>(
     key: T
   ): Environment['env'][T]['value'] {
-    const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    const environment = new Environment()
+    if (!Object.hasOwn(environment.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
-    return env.env[key].value
+    return environment.env[key].value
   }
 
   /**
@@ -109,19 +108,19 @@ export class Environment {
    * @returns 値
    */
   public static getBoolean(key: keyof Environment['env']): boolean {
-    const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    const environment = new Environment()
+    if (!Object.hasOwn(environment.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
-    const value = env.env[key].value
-    const type = env.env[key].type
+    const value = environment.env[key].value
+    const type = environment.env[key].type
     if (type !== 'boolean') {
       throw new Error(`Environment variable ${key} is not a boolean`)
     }
     if (value === 'true') {
       return true
-    } else if (value === 'false') {
+    }
+    if (value === 'false') {
       return false
     }
     throw new Error(`Environment variable ${key} is not a boolean`)
@@ -140,22 +139,21 @@ export class Environment {
       ? string
       : never
   ): string {
-    const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    const environment = new Environment()
+    if (!Object.hasOwn(environment.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
-    let path = env.env[key].value
-    const type = env.env[key].type
+    const type = environment.env[key].type
     const isFile = type === 'file'
-    const isDirectory = type === 'directory'
 
     if (isFile && filename) {
       throw new Error(`Filename is not allowed for ${key}, it is a file path`)
     }
+    const isDirectory = type === 'directory'
     if (!isFile && !isDirectory) {
       throw new Error(`Should be a file or directory path for ${key}`)
     }
+    let path = environment.env[key].value
     if (!path) {
       throw new Error(`Environment variable ${key} is not set`)
     }
@@ -179,12 +177,12 @@ export class Environment {
    * @param isFile ファイルかどうか
    */
   private static makeDir(path: string, isFile: boolean): void {
-    const parentDir = isFile
+    const parentDirectory = isFile
       ? path.slice(0, Math.max(0, path.lastIndexOf('/')))
       : path
-    if (fs.existsSync(parentDir)) {
+    if (fs.existsSync(parentDirectory)) {
       return
     }
-    fs.mkdirSync(parentDir, { recursive: true })
+    fs.mkdirSync(parentDirectory, { recursive: true })
   }
 }

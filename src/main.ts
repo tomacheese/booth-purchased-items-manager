@@ -313,15 +313,15 @@ export async function extractIdLinking(
     const uniqueBoothIds = [...new Set(boothIds)]
 
     for (const boothId of uniqueBoothIds) {
-      if (
-        idLinking.some((link) => link.from === productId && link.to === boothId)
-      ) {
-        continue
+      const isAlreadyLinked = idLinking.some(
+        (link) => link.from === productId && link.to === boothId
+      )
+      if (!isAlreadyLinked) {
+        idLinking.push({
+          from: productId,
+          to: boothId,
+        })
       }
-      idLinking.push({
-        from: productId,
-        to: boothId,
-      })
     }
   }
 
@@ -335,6 +335,55 @@ export async function extractIdLinking(
  * @param products 商品リスト
  * @returns なし
  */
+/**
+ * 単一アイテムをダウンロードし保存する（内部利用）
+ * @param boothRequest BoothRequestインスタンス
+ * @param pageCache PageCacheインスタンス
+ * @param productId 商品ID
+ * @param item アイテム情報
+ * @returns なし
+ */
+async function downloadItem(
+  boothRequest: BoothRequest,
+  pageCache: PageCache,
+  productId: string,
+  item: BoothProduct['items'][number]
+) {
+  const logger = Logger.configure('downloadItem')
+  logger.info(
+    `Downloading item ${item.itemName} [${item.itemId}] (${item.downloadURL})`
+  )
+  const fileExtension = item.itemName.split('.').pop()
+  const itemPath = Environment.getPath(
+    'DOWNLOADED_ITEMS_DIR',
+    `${productId}/${item.itemId}.${fileExtension}`
+  )
+  if (fs.existsSync(itemPath)) {
+    logger.info(`Item ${itemPath} already exists, skipping...`)
+    return
+  }
+
+  const data = await pageCache.loadOrFetch('item', item.itemId, 1, async () => {
+    const response = await boothRequest.getItem(item.itemId)
+    if (response.status !== 200) {
+      throw new Error(`Failed to fetch product page: ${response.status}`)
+    }
+    return response.data
+  })
+
+  const itemDirectory = itemPath.slice(
+    0,
+    Math.max(0, itemPath.lastIndexOf('/'))
+  )
+  if (!fs.existsSync(itemDirectory)) {
+    fs.mkdirSync(itemDirectory, { recursive: true })
+  }
+
+  // save data
+  fs.writeFileSync(itemPath, Buffer.from(data), 'binary')
+  logger.info(`Item ${itemPath} downloaded`)
+}
+
 export async function downloadItems(
   boothRequest: BoothRequest,
   pageCache: PageCache,
@@ -347,40 +396,7 @@ export async function downloadItems(
       `Downloading items for product ${productName} [${productId}] (${items.length} items)`
     )
     for (const item of items) {
-      logger.info(
-        `Downloading item ${item.itemName} [${item.itemId}] (${item.downloadURL})`
-      )
-      const fileExtension = item.itemName.split('.').pop()
-      const itemPath = Environment.getPath(
-        'DOWNLOADED_ITEMS_DIR',
-        `${productId}/${item.itemId}.${fileExtension}`
-      )
-      if (fs.existsSync(itemPath)) {
-        logger.info(`Item ${itemPath} already exists, skipping...`)
-        continue
-      }
-
-      const data = await pageCache.loadOrFetch(
-        'item',
-        item.itemId,
-        1,
-        async () => {
-          const response = await boothRequest.getItem(item.itemId)
-          if (response.status !== 200) {
-            throw new Error(`Failed to fetch product page: ${response.status}`)
-          }
-          return response.data
-        }
-      )
-
-      const itemDir = itemPath.slice(0, Math.max(0, itemPath.lastIndexOf('/')))
-      if (!fs.existsSync(itemDir)) {
-        fs.mkdirSync(itemDir, { recursive: true })
-      }
-
-      // save data
-      fs.writeFileSync(itemPath, Buffer.from(data), 'binary')
-      logger.info(`Item ${itemPath} downloaded`)
+      await downloadItem(boothRequest, pageCache, productId, item)
     }
   }
 }
@@ -399,7 +415,7 @@ async function main() {
   const pageCache = new PageCache()
 
   const productPath = Environment.getPath('PRODUCTS_PATH')
-  const prevProducts: BoothProduct[] = fs.existsSync(productPath)
+  const previousProducts: BoothProduct[] = fs.existsSync(productPath)
     ? JSON.parse(fs.readFileSync(productPath, 'utf8'))
     : []
 
@@ -444,23 +460,23 @@ async function main() {
 
   // 新しい商品・アイテムを一覧化
   const newProducts = products.filter((product) => {
-    return !prevProducts.some(
-      (prevProduct) => prevProduct.productId === product.productId
+    return previousProducts.every(
+      (previousProduct) => previousProduct.productId !== product.productId
     )
   })
   const newItems = products.flatMap((product) => {
     if (
-      prevProducts.some(
-        (prevProduct) => prevProduct.productId === product.productId
+      previousProducts.some(
+        (previousProduct) => previousProduct.productId === product.productId
       )
     ) {
       return product.items
         .filter((item) => {
-          return !prevProducts.some((prevProduct) => {
-            return (
-              prevProduct.productId === product.productId &&
-              prevProduct.items.some(
-                (prevItem) => prevItem.itemId === item.itemId
+          return previousProducts.every((previousProduct) => {
+            return !(
+              previousProduct.productId === product.productId &&
+              previousProduct.items.some(
+                (previousItem) => previousItem.itemId === item.itemId
               )
             )
           })
@@ -477,16 +493,16 @@ async function main() {
     `New products: ${newProducts.length}, New items: ${newItems.length}`
   )
 
-  const newProductDir = Environment.getPath('NEW_DIR', 'products/')
-  const newItemDir = Environment.getPath('NEW_DIR', 'items/')
+  const newProductDirectory = Environment.getPath('NEW_DIR', 'products/')
+  const newItemDirectory = Environment.getPath('NEW_DIR', 'items/')
   // YYYY-MM-DD_HH-MM-SS
   const datetime = new Date()
     .toISOString()
     .replaceAll(':', '-')
     .slice(0, 19)
     .replace('T', '_')
-  const newProductPath = `${newProductDir}${datetime}.json`
-  const newItemPath = `${newItemDir}${datetime}.json`
+  const newProductPath = `${newProductDirectory}${datetime}.json`
+  const newItemPath = `${newItemDirectory}${datetime}.json`
 
   if (newProducts.length > 0) {
     logger.info('New products:')
@@ -495,8 +511,8 @@ async function main() {
     }
 
     // Save new products
-    if (!fs.existsSync(newProductDir)) {
-      fs.mkdirSync(newProductDir, { recursive: true })
+    if (!fs.existsSync(newProductDirectory)) {
+      fs.mkdirSync(newProductDirectory, { recursive: true })
     }
     fs.writeFileSync(newProductPath, JSON.stringify(newProducts, null, 2))
   }
@@ -507,8 +523,8 @@ async function main() {
     }
 
     // Save new items
-    if (!fs.existsSync(newItemDir)) {
-      fs.mkdirSync(newItemDir, { recursive: true })
+    if (!fs.existsSync(newItemDirectory)) {
+      fs.mkdirSync(newItemDirectory, { recursive: true })
     }
     fs.writeFileSync(newItemPath, JSON.stringify(newItems, null, 2))
   }
@@ -587,8 +603,10 @@ async function main() {
     logger.info(`  Total versions: ${vpmStats.totalVersions}`)
     if (vpmStats.packages.length > 0) {
       logger.info('  Packages:')
-      for (const pkg of vpmStats.packages) {
-        logger.info(`    - ${pkg.name} (${pkg.versions.length} versions)`)
+      for (const package_ of vpmStats.packages) {
+        logger.info(
+          `    - ${package_.name} (${package_.versions.length} versions)`
+        )
       }
     }
   }

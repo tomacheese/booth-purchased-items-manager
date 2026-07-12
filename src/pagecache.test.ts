@@ -113,16 +113,16 @@ describe('PageCache', () => {
   // キャッシュミス時にfetchFuncが呼ばれるかのテスト
   test('should load or fetch data when cache miss', async () => {
     mockFs.existsSync.mockReturnValue(false)
-    const fetchFunc = jest.fn().mockResolvedValue('new data')
+    const fetchFunction = jest.fn().mockResolvedValue('new data')
 
     const result = await pageCache.loadOrFetch(
       'testType',
       'testId',
       null,
-      fetchFunc
+      fetchFunction
     )
 
-    expect(fetchFunc).toHaveBeenCalled()
+    expect(fetchFunction).toHaveBeenCalled()
     expect(result).toBe('new data')
   })
 
@@ -130,16 +130,16 @@ describe('PageCache', () => {
   test('should not fetch when cache hit', async () => {
     mockFs.existsSync.mockReturnValue(true)
     mockFs.readFileSync.mockReturnValue('cached data')
-    const fetchFunc = jest.fn().mockResolvedValue('new data')
+    const fetchFunction = jest.fn().mockResolvedValue('new data')
 
     const result = await pageCache.loadOrFetch(
       'testType',
       'testId',
       null,
-      fetchFunc
+      fetchFunction
     )
 
-    expect(fetchFunc).toHaveBeenCalled() // expireDays: null の場合は常に期限切れなのでfetch実行
+    expect(fetchFunction).toHaveBeenCalled() // expireDays: null の場合は常に期限切れなのでfetch実行
     expect(result).toBe('new data')
   })
 

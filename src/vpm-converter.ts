@@ -25,7 +25,7 @@ export interface VpmPackageManifest {
   legacyPackages?: string[]
 }
 
-export interface VpmRepositoryManifest {
+export interface VpmRepoManifest {
   name: string
   id: string
   url: string
@@ -68,7 +68,7 @@ export class VpmConverter {
     // リポジトリの構成変更をチェックし、必要に応じて再構築
     this.checkAndRebuildRepository()
 
-    const vpmRepository = this.loadOrCreateRepository()
+    const vpmRepo = this.loadOrCreateRepository()
     let hasUpdates = false
 
     for (const product of products) {
@@ -89,50 +89,13 @@ export class VpmConverter {
       )
 
       for (const item of unityPackageItems) {
-        try {
-          const packagePath = this.getItemPath(
-            product.productId,
-            item.itemId,
-            item.itemName
-          )
-
-          this.logger.info(
-            `Checking UnityPackage: ${item.itemName} -> ${packagePath}`
-          )
-
-          if (!fs.existsSync(packagePath)) {
-            this.logger.warn(`UnityPackage not found: ${packagePath}`)
-            continue
-          }
-
-          // ZIP圧縮されたUnityPackageの場合は展開し、全UnityPackageを取得
-          const actualPackagePaths =
-            await this.extractAllUnityPackagesFromZip(packagePath)
-
-          // 各UnityPackageを個別に処理
-          for (const actualPackagePath of actualPackagePaths) {
-            const vpmPackage = await this.convertUnityPackageToVpm(
-              actualPackagePath,
-              product,
-              item,
-              vpmRepository
-            )
-
-            if (vpmPackage) {
-              this.addPackageToRepository(vpmRepository, vpmPackage)
-              // パッケージが追加されるたびに逐次保存
-              this.saveRepository(vpmRepository)
-              hasUpdates = true
-              this.logger.info(
-                `Converted to VPM: ${vpmPackage.name}@${vpmPackage.version}`
-              )
-            }
-          }
-        } catch (error) {
-          this.logger.error(
-            `Failed to convert ${item.itemName}:`,
-            error instanceof Error ? error : new Error(String(error))
-          )
+        const isUpdated = await this.processUnityPackageItem(
+          product,
+          item,
+          vpmRepo
+        )
+        if (isUpdated) {
+          hasUpdates = true
         }
       }
     }
@@ -143,13 +106,71 @@ export class VpmConverter {
   }
 
   /**
+   * 単一のUnityPackageアイテムをVPM形式に変換する（内部利用）
+   * @returns リポジトリが更新されたかどうか
+   */
+  private async processUnityPackageItem(
+    product: BoothProduct,
+    item: BoothProductItem,
+    vpmRepo: VpmRepoManifest
+  ): Promise<boolean> {
+    let hasUpdate = false
+    try {
+      const packagePath = this.getItemPath(
+        product.productId,
+        item.itemId,
+        item.itemName
+      )
+
+      this.logger.info(
+        `Checking UnityPackage: ${item.itemName} -> ${packagePath}`
+      )
+
+      if (!fs.existsSync(packagePath)) {
+        this.logger.warn(`UnityPackage not found: ${packagePath}`)
+        return false
+      }
+
+      // ZIP圧縮されたUnityPackageの場合は展開し、全UnityPackageを取得
+      const actualPackagePaths =
+        await this.extractAllUnityPackagesFromZip(packagePath)
+
+      // 各UnityPackageを個別に処理
+      for (const actualPackagePath of actualPackagePaths) {
+        const vpmPackage = await this.convertUnityPackageToVpm(
+          actualPackagePath,
+          product,
+          item,
+          vpmRepo
+        )
+
+        if (vpmPackage) {
+          this.addPackageToRepository(vpmRepo, vpmPackage)
+          // パッケージが追加されるたびに逐次保存
+          this.saveRepository(vpmRepo)
+          hasUpdate = true
+          this.logger.info(
+            `Converted to VPM: ${vpmPackage.name}@${vpmPackage.version}`
+          )
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to convert ${item.itemName}:`,
+        error instanceof Error ? error : new Error(String(error))
+      )
+    }
+    return hasUpdate
+  }
+
+  /**
    * UnityPackageファイルをVPM形式に変換する
    */
   private async convertUnityPackageToVpm(
     packagePath: string,
     product: BoothProduct,
     item: BoothProductItem,
-    existingRepository: VpmRepositoryManifest
+    existingRepo: VpmRepoManifest
   ): Promise<VpmPackageManifest | null> {
     try {
       // ZIP内容を分析してファイル識別子を抽出
@@ -163,9 +184,7 @@ export class VpmConverter {
 
       // ファイルハッシュを計算して同じファイルかチェック
       const fileHash = this.calculateFileHash(packagePath)
-      if (
-        this.isFileAlreadyProcessed(packageName, fileHash, existingRepository)
-      ) {
+      if (this.isFileAlreadyProcessed(packageName, fileHash, existingRepo)) {
         this.logger.debug(
           `File already processed for ${packageName}: ${fileHash}`
         )
@@ -175,7 +194,7 @@ export class VpmConverter {
       const version = this.generateVersion(
         packagePath,
         packageName,
-        existingRepository,
+        existingRepo,
         item.itemName // 元のアイテム名も渡す
       )
 
@@ -188,7 +207,7 @@ export class VpmConverter {
       }
 
       // VPMパッケージディレクトリのパスを準備（まだ作成しない）
-      const vpmPackageDir = path.join(
+      const vpmPackageDirectory = path.join(
         this.repositoryDir,
         'packages',
         packageName,
@@ -196,7 +215,10 @@ export class VpmConverter {
       )
 
       // UnityPackageをVPM形式に変換
-      const zipPath = path.join(vpmPackageDir, `${packageName}-${version}.zip`)
+      const zipPath = path.join(
+        vpmPackageDirectory,
+        `${packageName}-${version}.zip`
+      )
 
       // package.jsonを生成
       const manifest: VpmPackageManifest = {
@@ -213,40 +235,43 @@ export class VpmConverter {
       }
 
       // 一時的なディレクトリでパッケージを作成
-      const tempDir = path.join(
+      const temporaryDirectory = path.join(
         this.repositoryDir,
         '.temp',
         `${packageName}-${version}`
       )
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true })
+      if (fs.existsSync(temporaryDirectory)) {
+        fs.rmSync(temporaryDirectory, { recursive: true, force: true })
       }
-      fs.mkdirSync(tempDir, { recursive: true })
+      fs.mkdirSync(temporaryDirectory, { recursive: true })
 
-      const tempZipPath = path.join(tempDir, `${packageName}-${version}.zip`)
+      const temporaryZipPath = path.join(
+        temporaryDirectory,
+        `${packageName}-${version}.zip`
+      )
 
       try {
         await this.createVpmPackageFromUnityPackage(
           packagePath,
-          tempZipPath,
+          temporaryZipPath,
           manifest
         )
 
         // 成功した場合のみ、実際のディレクトリを作成してファイルを移動
-        if (!fs.existsSync(vpmPackageDir)) {
-          fs.mkdirSync(vpmPackageDir, { recursive: true })
+        if (!fs.existsSync(vpmPackageDirectory)) {
+          fs.mkdirSync(vpmPackageDirectory, { recursive: true })
         }
 
         // ZIPファイルを移動
-        fs.renameSync(tempZipPath, zipPath)
+        fs.renameSync(temporaryZipPath, zipPath)
 
         // package.jsonを作成
-        const manifestPath = path.join(vpmPackageDir, 'package.json')
+        const manifestPath = path.join(vpmPackageDirectory, 'package.json')
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       } finally {
         // 一時ディレクトリをクリーンアップ
-        if (fs.existsSync(tempDir)) {
-          fs.rmSync(tempDir, { recursive: true, force: true })
+        if (fs.existsSync(temporaryDirectory)) {
+          fs.rmSync(temporaryDirectory, { recursive: true, force: true })
         }
       }
 
@@ -329,8 +354,8 @@ export class VpmConverter {
    */
   private async analyzeZipContent(zipPath: string): Promise<string | null> {
     return new Promise((resolve) => {
-      yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-        if (err) {
+      yauzl.open(zipPath, { lazyEntries: true }, (error, zipfile) => {
+        if (error) {
           resolve(null)
           return
         }
@@ -438,11 +463,11 @@ export class VpmConverter {
    * ファイル名からユニークな識別子を抽出する
    */
   private extractFileIdentifier(filename: string): string {
-    const nameWithoutExt = path.basename(filename, path.extname(filename))
+    const nameWithoutExtension = path.basename(filename, path.extname(filename))
 
     // 最初に補助的なファイル（おまけ、bonus等）を識別
-    if (this.isSupplementaryFile(nameWithoutExt)) {
-      return this.getSupplementaryIdentifier(nameWithoutExt)
+    if (this.isSupplementaryFile(nameWithoutExtension)) {
+      return this.getSupplementaryIdentifier(nameWithoutExtension)
     }
 
     // まずバージョンパターンを除去
@@ -453,7 +478,7 @@ export class VpmConverter {
       /V\d+\.\d+$/i, // V1.2
     ]
 
-    let cleanName = nameWithoutExt
+    let cleanName = nameWithoutExtension
     for (const pattern of versionPatterns) {
       cleanName = cleanName.replace(pattern, '')
     }
@@ -474,10 +499,10 @@ export class VpmConverter {
     // 空の場合やファイル全体が商品名のみの場合
     if (cleanName.length === 0) {
       // 特殊なケースの識別
-      if (nameWithoutExt.toLowerCase().includes('material')) {
+      if (nameWithoutExtension.toLowerCase().includes('material')) {
         return 'materials'
       }
-      if (nameWithoutExt.toLowerCase().includes('texture')) {
+      if (nameWithoutExtension.toLowerCase().includes('texture')) {
         return 'textures'
       }
       // 単一ファイルの場合は識別子なしとする
@@ -615,23 +640,25 @@ export class VpmConverter {
   private generateVersion(
     packagePath: string,
     packageName: string,
-    existingRepository: VpmRepositoryManifest,
+    existingRepo: VpmRepoManifest,
     originalItemName?: string
   ): string {
     // まず元のアイテム名からバージョンを抽出を試行
-    let extractedVersion: string | null = null
-    if (originalItemName) {
-      extractedVersion = this.extractVersionFromFilename(originalItemName)
-    }
+    let extractedVersion: string | null = originalItemName
+      ? this.extractVersionFromFilename(originalItemName)
+      : null
 
     // 元のアイテム名からバージョンが抽出できない場合は、パッケージパスから抽出
     extractedVersion ??= this.extractVersionFromFilename(packagePath)
 
     if (extractedVersion) {
       // 抽出したバージョンが既存のものと重複しないかチェック
-      const existingPackage = existingRepository.packages[packageName]
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (!existingPackage?.versions[extractedVersion]) {
+      const existingPackage = existingRepo.packages[packageName]
+      if (
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Record のインデックスアクセスは実行時に undefined を返しうる
+        !existingPackage ||
+        !Object.hasOwn(existingPackage.versions, extractedVersion)
+      ) {
         return extractedVersion
       }
     }
@@ -641,9 +668,12 @@ export class VpmConverter {
     const dateVersion = this.generateDateBasedVersion(stats.mtime)
 
     // 日付ベースのバージョンが重複しないかチェック
-    const existingPackageForDate = existingRepository.packages[packageName]
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!existingPackageForDate?.versions[dateVersion]) {
+    const existingPackageForDate = existingRepo.packages[packageName]
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Record のインデックスアクセスは実行時に undefined を返しうる
+      !existingPackageForDate ||
+      !Object.hasOwn(existingPackageForDate.versions, dateVersion)
+    ) {
       return dateVersion
     }
 
@@ -652,8 +682,7 @@ export class VpmConverter {
     let counter = 1
     let versionWithSuffix = `${dateVersion}-${counter}`
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    while (existingPackageForDate.versions[versionWithSuffix]) {
+    while (Object.hasOwn(existingPackageForDate.versions, versionWithSuffix)) {
       counter++
       versionWithSuffix = `${dateVersion}-${counter}`
     }
@@ -688,7 +717,7 @@ export class VpmConverter {
         // セマンティックバージョンの形式に正規化
         const parts = version.split('.').map((part) => {
           // 先頭ゼロを削除（例: "03" → "3"）
-          return Number.parseInt(part, 10).toString()
+          return Number(part).toString()
         })
 
         // 最低2つのパート（major.minor）が必要
@@ -732,31 +761,42 @@ export class VpmConverter {
     targetZipPath: string,
     manifest: VpmPackageManifest
   ): Promise<void> {
-    const tempDir = path.join(path.dirname(sourcePath), 'temp_vpm_package')
+    const temporaryDirectory = path.join(
+      path.dirname(sourcePath),
+      'temp_vpm_package'
+    )
 
     try {
       // 一時ディレクトリを作成
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true })
+      if (fs.existsSync(temporaryDirectory)) {
+        fs.rmSync(temporaryDirectory, { recursive: true, force: true })
       }
-      fs.mkdirSync(tempDir, { recursive: true })
+      fs.mkdirSync(temporaryDirectory, { recursive: true })
 
       if (sourcePath.toLowerCase().endsWith('.unitypackage')) {
         // UnityPackageを展開してVPM構造に変換
-        this.extractAndConvertUnityPackage(sourcePath, tempDir, manifest)
+        this.extractAndConvertUnityPackage(
+          sourcePath,
+          temporaryDirectory,
+          manifest
+        )
       } else {
         // ZIP内のUnityPackageを処理
-        await this.extractAndConvertFromZip(sourcePath, tempDir, manifest)
+        await this.extractAndConvertFromZip(
+          sourcePath,
+          temporaryDirectory,
+          manifest
+        )
       }
 
       // VPMパッケージのZIPを作成
       // tempDirが空でないことを確認
-      const tempDirFiles = fs.readdirSync(tempDir)
-      if (tempDirFiles.length === 0) {
-        throw new Error(`tempDir is empty: ${tempDir}`)
+      const temporaryDirectoryFiles = fs.readdirSync(temporaryDirectory)
+      if (temporaryDirectoryFiles.length === 0) {
+        throw new Error(`temporaryDirectory is empty: ${temporaryDirectory}`)
       }
 
-      execSync(`cd "${tempDir}" && zip -r -q "${targetZipPath}" .`, {
+      execSync(`cd "${temporaryDirectory}" && zip -r -q "${targetZipPath}" .`, {
         stdio: 'inherit',
       })
 
@@ -774,8 +814,8 @@ export class VpmConverter {
       }
     } finally {
       // 一時ディレクトリを削除
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true })
+      if (fs.existsSync(temporaryDirectory)) {
+        fs.rmSync(temporaryDirectory, { recursive: true, force: true })
       }
     }
   }
@@ -785,25 +825,25 @@ export class VpmConverter {
    */
   private extractAndConvertUnityPackage(
     unityPackagePath: string,
-    targetDir: string,
+    targetDirectory: string,
     manifest: VpmPackageManifest
   ): void {
-    const extractDir = path.join(targetDir, 'extracted')
+    const extractDirectory = path.join(targetDirectory, 'extracted')
 
     try {
-      fs.mkdirSync(extractDir, { recursive: true })
+      fs.mkdirSync(extractDirectory, { recursive: true })
 
       // UnityPackageを展開（tarファイルとして）
-      execSync(`tar -xf "${unityPackagePath}" -C "${extractDir}"`, {
+      execSync(`tar -xf "${unityPackagePath}" -C "${extractDirectory}"`, {
         stdio: 'inherit',
       })
 
       // VPM構造を作成
-      this.createVpmStructure(extractDir, targetDir, manifest)
+      this.createVpmStructure(extractDirectory, targetDirectory, manifest)
     } finally {
       // UnityPackage展開用の一時フォルダを削除
-      if (fs.existsSync(extractDir)) {
-        fs.rmSync(extractDir, { recursive: true, force: true })
+      if (fs.existsSync(extractDirectory)) {
+        fs.rmSync(extractDirectory, { recursive: true, force: true })
       }
     }
   }
@@ -813,35 +853,35 @@ export class VpmConverter {
    */
   private async extractAndConvertFromZip(
     zipPath: string,
-    targetDir: string,
+    targetDirectory: string,
     manifest: VpmPackageManifest
   ): Promise<void> {
-    const extractDir = path.join(targetDir, 'zip_extracted')
+    const extractDirectory = path.join(targetDirectory, 'zip_extracted')
 
     try {
-      fs.mkdirSync(extractDir, { recursive: true })
+      fs.mkdirSync(extractDirectory, { recursive: true })
 
       // yauzlライブラリを使用してZIPを展開
       try {
-        await this.extractZipWithYauzl(zipPath, extractDir)
+        await this.extractZipWithYauzl(zipPath, extractDirectory)
       } catch (error) {
         this.logger.warn(
           `yauzl extraction failed, trying fallback: ${String(error)}`
         )
         // フォールバック: 従来のunzipコマンド
-        execSync(`unzip -q -o "${zipPath}" -d "${extractDir}"`, {
+        execSync(`unzip -q -o "${zipPath}" -d "${extractDirectory}"`, {
           stdio: 'inherit',
         })
       }
 
       // UnityPackageファイルを検索
-      const unityPackageFiles = this.findUnityPackageFiles(extractDir)
+      const unityPackageFiles = this.findUnityPackageFiles(extractDirectory)
 
       if (unityPackageFiles.length > 0) {
         // 最初のUnityPackageを使用
         this.extractAndConvertUnityPackage(
           unityPackageFiles[0],
-          targetDir,
+          targetDirectory,
           manifest
         )
       } else {
@@ -850,7 +890,7 @@ export class VpmConverter {
         if (Environment.getBoolean('VPM_CREATE_FALLBACK_PACKAGES')) {
           this.createFallbackPackage(
             zipPath,
-            path.join(targetDir, 'fallback.zip'),
+            path.join(targetDirectory, 'fallback.zip'),
             manifest
           )
         } else {
@@ -862,8 +902,8 @@ export class VpmConverter {
       }
     } finally {
       // ZIP展開用の一時フォルダを削除
-      if (fs.existsSync(extractDir)) {
-        fs.rmSync(extractDir, { recursive: true, force: true })
+      if (fs.existsSync(extractDirectory)) {
+        fs.rmSync(extractDirectory, { recursive: true, force: true })
       }
     }
   }
@@ -872,30 +912,34 @@ export class VpmConverter {
    * VPMパッケージ構造を作成
    */
   private createVpmStructure(
-    extractedDir: string,
-    targetDir: string,
+    extractedDirectory: string,
+    targetDirectory: string,
     manifest: VpmPackageManifest
   ): void {
     // package.jsonを作成
-    const packageJsonPath = path.join(targetDir, 'package.json')
+    const packageJsonPath = path.join(targetDirectory, 'package.json')
     fs.writeFileSync(packageJsonPath, JSON.stringify(manifest, null, 2))
 
     // Runtime フォルダを作成
-    const runtimeDir = path.join(targetDir, 'Runtime')
-    fs.mkdirSync(runtimeDir, { recursive: true })
+    const runtimeDirectory = path.join(targetDirectory, 'Runtime')
+    fs.mkdirSync(runtimeDirectory, { recursive: true })
 
     // Editor フォルダを作成
-    const editorDir = path.join(targetDir, 'Editor')
-    fs.mkdirSync(editorDir, { recursive: true })
+    const editorDirectory = path.join(targetDirectory, 'Editor')
+    fs.mkdirSync(editorDirectory, { recursive: true })
 
     // UnityPackageの内容を適切なフォルダに配置
-    this.organizeUnityPackageAssets(extractedDir, runtimeDir, editorDir)
+    this.organizeUnityPackageAssets(
+      extractedDirectory,
+      runtimeDirectory,
+      editorDirectory
+    )
 
     // Runtime.asmdefを作成
-    this.createRuntimeAsmdef(runtimeDir, manifest.name)
+    this.createRuntimeAsmdef(runtimeDirectory, manifest.name)
 
     // Editor.asmdefを作成
-    this.createEditorAsmdef(editorDir, manifest.name)
+    this.createEditorAsmdef(editorDirectory, manifest.name)
 
     this.logger.info('Created VPM package structure')
   }
@@ -904,26 +948,28 @@ export class VpmConverter {
    * UnityPackageのアセットを適切なフォルダに整理
    */
   private organizeUnityPackageAssets(
-    extractedDir: string,
-    runtimeDir: string,
-    editorDir: string
+    extractedDirectory: string,
+    runtimeDirectory: string,
+    editorDirectory: string
   ): void {
     try {
       // UnityPackageの構造を解析
-      const pathsToProcess = this.parseUnityPackageStructure(extractedDir)
+      const pathsToProcess = this.parseUnityPackageStructure(extractedDirectory)
 
       for (const { assetPath, filePath } of pathsToProcess) {
         // アセットパスに基づいてRuntime/Editorを決定
         const isEditorAsset = this.isEditorAsset(assetPath)
-        const targetDir = isEditorAsset ? editorDir : runtimeDir
+        const targetDirectory = isEditorAsset
+          ? editorDirectory
+          : runtimeDirectory
 
         // ファイルの配置先を決定
         const relativePath = this.getRelativeAssetPath(assetPath)
-        const targetPath = path.join(targetDir, relativePath)
+        const targetPath = path.join(targetDirectory, relativePath)
 
         // ディレクトリを作成
-        const targetDirPath = path.dirname(targetPath)
-        fs.mkdirSync(targetDirPath, { recursive: true })
+        const targetDirectoryPath = path.dirname(targetPath)
+        fs.mkdirSync(targetDirectoryPath, { recursive: true })
 
         // ファイルをコピー
         if (fs.existsSync(filePath)) {
@@ -935,24 +981,24 @@ export class VpmConverter {
         `Failed to organize UnityPackage assets: ${String(error)}`
       )
       // フォールバック: すべてのファイルをRuntimeに配置
-      this.copyAllAssetsToRuntime(extractedDir, runtimeDir)
+      this.copyAllAssetsToRuntime(extractedDirectory, runtimeDirectory)
     }
   }
 
   /**
    * UnityPackageの構造を解析
    */
-  private parseUnityPackageStructure(extractedDir: string): {
+  private parseUnityPackageStructure(extractedDirectory: string): {
     assetPath: string
     filePath: string
   }[] {
     const assetPaths: { assetPath: string; filePath: string }[] = []
 
     try {
-      const entries = fs.readdirSync(extractedDir)
+      const entries = fs.readdirSync(extractedDirectory)
 
       for (const entry of entries) {
-        const entryPath = path.join(extractedDir, entry)
+        const entryPath = path.join(extractedDirectory, entry)
         const stat = fs.statSync(entryPath)
 
         if (stat.isDirectory()) {
@@ -998,9 +1044,10 @@ export class VpmConverter {
   private getRelativeAssetPath(assetPath: string): string {
     // Assets/ プレフィックスを除去
     let relativePath = assetPath
-    if (relativePath.startsWith('Assets/')) {
-      relativePath = relativePath.slice(7)
-    } else if (relativePath.startsWith('Assets\\')) {
+    if (
+      relativePath.startsWith('Assets/') ||
+      relativePath.startsWith('Assets\\')
+    ) {
       relativePath = relativePath.slice(7)
     }
 
@@ -1010,9 +1057,12 @@ export class VpmConverter {
   /**
    * すべてのアセットをRuntimeにコピー（フォールバック）
    */
-  private copyAllAssetsToRuntime(sourceDir: string, runtimeDir: string): void {
+  private copyAllAssetsToRuntime(
+    sourceDirectory: string,
+    runtimeDirectory: string
+  ): void {
     try {
-      execSync(`cp -r "${sourceDir}"/* "${runtimeDir}"/`, {
+      execSync(`cp -r "${sourceDirectory}"/* "${runtimeDirectory}"/`, {
         stdio: 'inherit',
       })
     } catch (error) {
@@ -1023,7 +1073,10 @@ export class VpmConverter {
   /**
    * Runtime.asmdefを作成
    */
-  private createRuntimeAsmdef(runtimeDir: string, packageName: string): void {
+  private createRuntimeAsmdef(
+    runtimeDirectory: string,
+    packageName: string
+  ): void {
     const asmdefContent = {
       name: `${packageName}.Runtime`,
       rootNamespace: packageName.replaceAll(/[^a-zA-Z0-9]/g, ''),
@@ -1039,14 +1092,20 @@ export class VpmConverter {
       noEngineReferences: false,
     }
 
-    const asmdefPath = path.join(runtimeDir, `${packageName}.Runtime.asmdef`)
+    const asmdefPath = path.join(
+      runtimeDirectory,
+      `${packageName}.Runtime.asmdef`
+    )
     fs.writeFileSync(asmdefPath, JSON.stringify(asmdefContent, null, 2))
   }
 
   /**
    * Editor.asmdefを作成
    */
-  private createEditorAsmdef(editorDir: string, packageName: string): void {
+  private createEditorAsmdef(
+    editorDirectory: string,
+    packageName: string
+  ): void {
     const asmdefContent = {
       name: `${packageName}.Editor`,
       rootNamespace: packageName.replaceAll(/[^a-zA-Z0-9]/g, ''),
@@ -1062,7 +1121,10 @@ export class VpmConverter {
       noEngineReferences: false,
     }
 
-    const asmdefPath = path.join(editorDir, `${packageName}.Editor.asmdef`)
+    const asmdefPath = path.join(
+      editorDirectory,
+      `${packageName}.Editor.asmdef`
+    )
     fs.writeFileSync(asmdefPath, JSON.stringify(asmdefContent, null, 2))
   }
 
@@ -1074,21 +1136,24 @@ export class VpmConverter {
     targetZipPath: string,
     manifest: VpmPackageManifest
   ): void {
-    const tempDir = path.join(path.dirname(sourcePath), 'temp_fallback')
+    const temporaryDirectory = path.join(
+      path.dirname(sourcePath),
+      'temp_fallback'
+    )
 
     try {
-      fs.mkdirSync(tempDir, { recursive: true })
+      fs.mkdirSync(temporaryDirectory, { recursive: true })
 
       // package.jsonを作成
-      const packageJsonPath = path.join(tempDir, 'package.json')
+      const packageJsonPath = path.join(temporaryDirectory, 'package.json')
       fs.writeFileSync(packageJsonPath, JSON.stringify(manifest, null, 2))
 
       // 元ファイルをコピー
       const fileName = path.basename(sourcePath)
-      fs.copyFileSync(sourcePath, path.join(tempDir, fileName))
+      fs.copyFileSync(sourcePath, path.join(temporaryDirectory, fileName))
 
       // ZIPを作成
-      execSync(`cd "${tempDir}" && zip -r -q "${targetZipPath}" .`, {
+      execSync(`cd "${temporaryDirectory}" && zip -r -q "${targetZipPath}" .`, {
         stdio: 'inherit',
       })
 
@@ -1102,8 +1167,8 @@ export class VpmConverter {
         throw error
       }
     } finally {
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true })
+      if (fs.existsSync(temporaryDirectory)) {
+        fs.rmSync(temporaryDirectory, { recursive: true, force: true })
       }
     }
   }
@@ -1114,11 +1179,11 @@ export class VpmConverter {
   private findUnityPackageFiles(directory: string): string[] {
     const unityPackageFiles: string[] = []
 
-    const searchRecursively = (dir: string) => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
+    const searchRecursively = (directory_: string) => {
+      const entries = fs.readdirSync(directory_, { withFileTypes: true })
 
       for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
+        const fullPath = path.join(directory_, entry.name)
 
         if (entry.isDirectory()) {
           searchRecursively(fullPath)
@@ -1143,17 +1208,17 @@ export class VpmConverter {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
       return `${cleanBaseUrl}/packages/${packageName}/${version}/${packageFileName}`
-    } else {
-      // ローカルファイルの場合（従来通り）
-      const zipPath = path.join(
-        this.repositoryDir,
-        'packages',
-        packageName,
-        version,
-        packageFileName
-      )
-      return `file://${zipPath}`
     }
+
+    // ローカルファイルの場合（従来通り）
+    const zipPath = path.join(
+      this.repositoryDir,
+      'packages',
+      packageName,
+      version,
+      packageFileName
+    )
+    return `file://${zipPath}`
   }
 
   /**
@@ -1166,11 +1231,11 @@ export class VpmConverter {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
       return `${cleanBaseUrl}/vpm.json`
-    } else {
-      // ローカルファイルの場合（従来通り）
-      const manifestPath = path.join(this.repositoryDir, 'vpm.json')
-      return `file://${manifestPath}`
     }
+
+    // ローカルファイルの場合（従来通り）
+    const manifestPath = path.join(this.repositoryDir, 'vpm.json')
+    return `file://${manifestPath}`
   }
 
   /**
@@ -1198,9 +1263,9 @@ export class VpmConverter {
   private isFileAlreadyProcessed(
     packageName: string,
     fileHash: string,
-    repository: VpmRepositoryManifest
+    repo: VpmRepoManifest
   ): boolean {
-    const existingPackage = repository.packages[packageName]
+    const existingPackage = repo.packages[packageName]
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!existingPackage) {
       return false
@@ -1221,13 +1286,13 @@ export class VpmConverter {
    * バージョンが既に存在するかチェック
    */
   private isVersionExists(packageName: string, version: string): boolean {
-    const versionDir = path.join(
+    const versionDirectory = path.join(
       this.repositoryDir,
       'packages',
       packageName,
       version
     )
-    return fs.existsSync(versionDir)
+    return fs.existsSync(versionDirectory)
   }
 
   /**
@@ -1238,19 +1303,21 @@ export class VpmConverter {
   ): Promise<string[]> {
     // ZIPファイルの場合（.unitypackage.zip や通常の.zip）
     if (packagePath.toLowerCase().endsWith('.zip')) {
-      const extractDir = path.join(
+      const extractDirectory = path.join(
         path.dirname(packagePath),
         'extracted_' + path.basename(packagePath, '.zip')
       )
 
       // 既に展開済みの場合はスキップ
-      if (fs.existsSync(extractDir)) {
+      if (fs.existsSync(extractDirectory)) {
         const unityPackageFiles = fs
-          .readdirSync(extractDir)
+          .readdirSync(extractDirectory)
           .filter((file) => file.toLowerCase().endsWith('.unitypackage'))
 
         if (unityPackageFiles.length > 0) {
-          return unityPackageFiles.map((file) => path.join(extractDir, file))
+          return unityPackageFiles.map((file) =>
+            path.join(extractDirectory, file)
+          )
         }
       }
 
@@ -1258,26 +1325,26 @@ export class VpmConverter {
 
       try {
         // ディレクトリを作成
-        if (!fs.existsSync(extractDir)) {
-          fs.mkdirSync(extractDir, { recursive: true })
+        if (!fs.existsSync(extractDirectory)) {
+          fs.mkdirSync(extractDirectory, { recursive: true })
         }
 
         // yauzlライブラリを使用してZIPファイルを展開
-        await this.extractZipWithYauzl(packagePath, extractDir)
+        await this.extractZipWithYauzl(packagePath, extractDirectory)
 
         // 展開されたUnityPackageファイルを探す
-        const files = fs.readdirSync(extractDir)
+        const files = fs.readdirSync(extractDirectory)
         this.logger.debug(`Files in extracted ZIP: ${files.join(', ')}`)
 
         // 再帰的に検索
-        const unityPackageFiles = this.findUnityPackageFiles(extractDir)
+        const unityPackageFiles = this.findUnityPackageFiles(extractDirectory)
         this.logger.debug(
           `Found UnityPackage files: ${unityPackageFiles.join(', ')}`
         )
 
         if (unityPackageFiles.length === 0) {
           this.logger.warn(`No .unitypackage file found in extracted ZIP`)
-          this.logger.debug(`Checked directory: ${extractDir}`)
+          this.logger.debug(`Checked directory: ${extractDirectory}`)
           return [packagePath]
         }
 
@@ -1292,7 +1359,7 @@ export class VpmConverter {
           error instanceof Error ? error : new Error(String(error))
         )
         // フォールバック: 従来のunzipコマンドを試行
-        return this.fallbackUnzipExtraction(packagePath, extractDir)
+        return this.fallbackUnzipExtraction(packagePath, extractDirectory)
       }
     }
 
@@ -1305,12 +1372,12 @@ export class VpmConverter {
    */
   private async extractZipWithYauzl(
     zipPath: string,
-    extractDir: string
+    extractDirectory: string
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-        if (err) {
-          reject(new Error(`Failed to open ZIP file: ${err.message}`))
+      yauzl.open(zipPath, { lazyEntries: true }, (error, zipfile) => {
+        if (error) {
+          reject(new Error(`Failed to open ZIP file: ${error.message}`))
           return
         }
 
@@ -1318,7 +1385,7 @@ export class VpmConverter {
 
         zipfile.on('entry', (entry: yauzl.Entry) => {
           const fileName = this.decodeFilename(entry.fileName)
-          const fullPath = path.join(extractDir, fileName)
+          const fullPath = path.join(extractDirectory, fileName)
 
           this.logger.debug(
             `Processing entry: ${entry.fileName} -> ${fileName}`
@@ -1330,12 +1397,14 @@ export class VpmConverter {
             zipfile.readEntry()
           } else {
             // ファイルの場合
-            const fileDir = path.dirname(fullPath)
-            fs.mkdirSync(fileDir, { recursive: true })
+            const fileDirectory = path.dirname(fullPath)
+            fs.mkdirSync(fileDirectory, { recursive: true })
 
-            zipfile.openReadStream(entry, (err, readStream) => {
-              if (err) {
-                reject(new Error(`Failed to open read stream: ${err.message}`))
+            zipfile.openReadStream(entry, (error, readStream) => {
+              if (error) {
+                reject(
+                  new Error(`Failed to open read stream: ${error.message}`)
+                )
                 return
               }
 
@@ -1409,7 +1478,7 @@ export class VpmConverter {
   private containsValidJapanese(text: string): boolean {
     // ひらがな、カタカナ、漢字、全角英数字のパターン
     const japanesePattern =
-      /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/
+      /[\u{3040}-\u{309F}\u{30A0}-\u{30FF}\u{4E00}-\u{9FAF}\u{FF10}-\u{FF19}\u{FF21}-\u{FF3A}\u{FF41}-\u{FF5A}]/u
     return japanesePattern.test(text) && !text.includes('�') // 文字化け記号が含まれていない
   }
 
@@ -1418,18 +1487,18 @@ export class VpmConverter {
    */
   private fallbackUnzipExtraction(
     packagePath: string,
-    extractDir: string
+    extractDirectory: string
   ): string[] {
     this.logger.warn('Falling back to unzip command')
 
     try {
       // unzipコマンドを使用してZIPファイルを展開
-      execSync(`unzip -q -o "${packagePath}" -d "${extractDir}"`, {
+      execSync(`unzip -q -o "${packagePath}" -d "${extractDirectory}"`, {
         stdio: 'inherit',
       })
 
       // 展開されたUnityPackageファイルを探す
-      const unityPackageFiles = this.findUnityPackageFiles(extractDir)
+      const unityPackageFiles = this.findUnityPackageFiles(extractDirectory)
 
       if (unityPackageFiles.length === 0) {
         this.logger.warn(`No .unitypackage file found in extracted ZIP`)
@@ -1464,16 +1533,16 @@ export class VpmConverter {
   /**
    * VPMリポジトリマニフェストを読み込み、なければ作成
    */
-  private loadOrCreateRepository(): VpmRepositoryManifest {
+  private loadOrCreateRepository(): VpmRepoManifest {
     const manifestPath = path.join(this.repositoryDir, 'vpm.json')
 
     if (fs.existsSync(manifestPath)) {
       const content = fs.readFileSync(manifestPath, 'utf8')
-      return JSON.parse(content) as VpmRepositoryManifest
+      return JSON.parse(content) as VpmRepoManifest
     }
 
     // 新しいリポジトリを作成
-    const repository: VpmRepositoryManifest = {
+    const repo: VpmRepoManifest = {
       name: 'Booth Purchased Items VPM Repository',
       id: 'com.booth.purchased.vpm',
       url: this.generateRepositoryUrl(),
@@ -1483,33 +1552,33 @@ export class VpmConverter {
       packages: {},
     }
 
-    return repository
+    return repo
   }
 
   /**
    * リポジトリにパッケージを追加
    */
   private addPackageToRepository(
-    repository: VpmRepositoryManifest,
+    repo: VpmRepoManifest,
     packageManifest: VpmPackageManifest
   ): void {
     const { name, version } = packageManifest
 
-    repository.packages[name] ??= { versions: {} }
+    repo.packages[name] ??= { versions: {} }
 
-    repository.packages[name].versions[version] = packageManifest
+    repo.packages[name].versions[version] = packageManifest
   }
 
   /**
    * リポジトリマニフェストを保存
    */
-  private saveRepository(repository: VpmRepositoryManifest): void {
+  private saveRepository(repo: VpmRepoManifest): void {
     const manifestPath = path.join(this.repositoryDir, 'vpm.json')
-    fs.writeFileSync(manifestPath, JSON.stringify(repository, null, 2))
+    fs.writeFileSync(manifestPath, JSON.stringify(repo, null, 2))
 
-    const totalPackages = Object.keys(repository.packages).length
-    const totalVersions = Object.values(repository.packages).reduce(
-      (sum, pkg) => sum + Object.keys(pkg.versions).length,
+    const totalPackages = Object.keys(repo.packages).length
+    const totalVersions = Object.values(repo.packages).reduce(
+      (sum, package_) => sum + Object.keys(package_.versions).length,
       0
     )
     this.logger.debug(
@@ -1525,16 +1594,16 @@ export class VpmConverter {
     totalVersions: number
     packages: { name: string; versions: string[] }[]
   } {
-    const repository = this.loadOrCreateRepository()
-    const packages = Object.entries(repository.packages).map(([name, pkg]) => ({
+    const repo = this.loadOrCreateRepository()
+    const packages = Object.entries(repo.packages).map(([name, package_]) => ({
       name,
-      versions: Object.keys(pkg.versions),
+      versions: Object.keys(package_.versions),
     }))
 
     return {
       totalPackages: packages.length,
       totalVersions: packages.reduce(
-        (sum, pkg) => sum + pkg.versions.length,
+        (sum, package_) => sum + package_.versions.length,
         0
       ),
       packages,
@@ -1550,10 +1619,10 @@ export class VpmConverter {
       return
     }
 
-    const repository = this.loadOrCreateRepository()
-    const packages = Object.entries(repository.packages)
-      .map(([name, pkg]) => {
-        const versions = Object.entries(pkg.versions)
+    const repo = this.loadOrCreateRepository()
+    const packages = Object.entries(repo.packages)
+      .map(([name, package_]) => {
+        const versions = Object.entries(package_.versions)
         const latestVersion = versions.toSorted(([, a], [, b]) =>
           b.version.localeCompare(a.version, undefined, { numeric: true })
         )[0]
@@ -1579,7 +1648,7 @@ export class VpmConverter {
       })
       .toSorted((a, b) => a.displayName.localeCompare(b.displayName))
 
-    const html = this.generateHtmlTemplate(repository, packages)
+    const html = this.generateHtmlTemplate(repo, packages)
     const htmlPath = path.join(this.repositoryDir, 'index.html')
     fs.writeFileSync(htmlPath, html)
 
@@ -1590,7 +1659,7 @@ export class VpmConverter {
    * HTMLテンプレートを生成する
    */
   private generateHtmlTemplate(
-    repository: VpmRepositoryManifest,
+    repo: VpmRepoManifest,
     packages: {
       name: string
       displayName: string
@@ -1608,7 +1677,7 @@ export class VpmConverter {
   ): string {
     const totalPackages = packages.length
     const totalVersions = packages.reduce(
-      (sum, pkg) => sum + pkg.totalVersions,
+      (sum, package_) => sum + package_.totalVersions,
       0
     )
     const lastUpdated = new Date().toLocaleString('ja-JP')
@@ -1618,7 +1687,7 @@ export class VpmConverter {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${repository.name}</title>
+    <title>${repo.name}</title>
     <style>
         * {
             margin: 0;
@@ -1871,7 +1940,7 @@ export class VpmConverter {
 <body>
     <div class="container">
         <div class="header">
-            <h1>${repository.name}</h1>
+            <h1>${repo.name}</h1>
             <p>Booth購入済みアイテムのVPMパッケージリポジトリ</p>
             <div class="stats">
                 <div class="stat">
@@ -1897,32 +1966,32 @@ export class VpmConverter {
         <div class="package-grid" id="packageGrid">
             ${packages
               .map(
-                (pkg) => `
-                <div class="package-card" data-search="${pkg.displayName.toLowerCase()} ${pkg.name.toLowerCase()} ${pkg.author.toLowerCase()} ${pkg.description.toLowerCase()}">
-                    <div class="package-title">${this.escapeHtml(pkg.displayName)}</div>
-                    <div class="package-name">${pkg.name}</div>
-                    <div class="package-description">${this.escapeHtml(pkg.description)}</div>
+                (package_) => `
+                <div class="package-card" data-search="${package_.displayName.toLowerCase()} ${package_.name.toLowerCase()} ${package_.author.toLowerCase()} ${package_.description.toLowerCase()}">
+                    <div class="package-title">${this.escapeHtml(package_.displayName)}</div>
+                    <div class="package-name">${package_.name}</div>
+                    <div class="package-description">${this.escapeHtml(package_.description)}</div>
                     
                     <div class="package-meta">
                         <div class="meta-item">
-                            <span class="meta-label">作者:</span> ${this.escapeHtml(pkg.author)}
+                            <span class="meta-label">作者:</span> ${this.escapeHtml(package_.author)}
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Unity:</span> ${pkg.unity}
+                            <span class="meta-label">Unity:</span> ${package_.unity}
                         </div>
                     </div>
                     
                     <div class="version-info">
-                        <div class="version-latest">最新版: v${pkg.latestVersion}</div>
-                        <div class="version-count">${pkg.totalVersions}個のバージョンが利用可能</div>
+                        <div class="version-latest">最新版: v${package_.latestVersion}</div>
+                        <div class="version-count">${package_.totalVersions}個のバージョンが利用可能</div>
                         ${
-                          pkg.totalVersions > 1
+                          package_.totalVersions > 1
                             ? `
                             <button class="expand-btn" onclick="toggleVersions(this)">
                                 すべてのバージョンを表示
                             </button>
                             <div class="version-list">
-                                ${pkg.versions
+                                ${package_.versions
                                   .map(
                                     (version) => `
                                     <div class="version-item">
@@ -2033,12 +2102,12 @@ export class VpmConverter {
     }
 
     // メタデータの比較
-    const needsRebuild = this.shouldRebuildRepository(
+    const isNeedsRebuild = this.shouldRebuildRepository(
       existingMetadata,
       currentMetadata
     )
 
-    if (needsRebuild) {
+    if (isNeedsRebuild) {
       this.logger.info('Repository structure change detected, rebuilding...')
       this.backupAndRebuildRepository()
     } else {
@@ -2156,11 +2225,11 @@ export class VpmConverter {
     // 既存のリポジトリをバックアップ
     if (fs.existsSync(this.repositoryDir)) {
       const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-')
-      const backupDir = `${this.repositoryDir}.backup-${timestamp}`
+      const backupDirectory = `${this.repositoryDir}.backup-${timestamp}`
 
-      this.logger.info(`Backing up existing repository to: ${backupDir}`)
+      this.logger.info(`Backing up existing repository to: ${backupDirectory}`)
       try {
-        execSync(`cp -r "${this.repositoryDir}" "${backupDir}"`, {
+        execSync(`cp -r "${this.repositoryDir}" "${backupDirectory}"`, {
           stdio: 'inherit',
         })
         this.logger.info('Backup completed successfully')

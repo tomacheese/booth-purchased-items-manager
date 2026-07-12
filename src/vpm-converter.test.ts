@@ -41,8 +41,8 @@ function wasMkdirSyncNotCalledWithPath(
   pathSubstring: string
 ): boolean {
   const calls = mockMkdirSync.mock.calls
-  return !calls.some(
-    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  return calls.every(
+    (call) => !(typeof call[0] === 'string' && call[0].includes(pathSubstring))
   )
 }
 
@@ -68,7 +68,7 @@ const mockIconvDecode = jest.spyOn(iconv, 'decode')
 
 describe('VpmConverter', () => {
   let vpmConverter: VpmConverter
-  const mockRepositoryDir = '/tmp/test-vpm-repository'
+  const mockRepoDirectory = '/tmp/test-vpm-repository'
   // let existsSyncCallCount = 0
 
   beforeEach(() => {
@@ -78,7 +78,7 @@ describe('VpmConverter', () => {
     // Mock environment methods
     mockEnvironment.getPath.mockImplementation(
       (key: string, filename?: string) => {
-        if (key === 'VPM_REPOSITORY_DIR') return mockRepositoryDir
+        if (key === 'VPM_REPOSITORY_DIR') return mockRepoDirectory
         if (key === 'DOWNLOADED_ITEMS_DIR' && filename)
           return `/path/to/${filename}`
         return '/path/to/item.unitypackage'
@@ -90,15 +90,18 @@ describe('VpmConverter', () => {
     // Mock file system with more flexible behavior
     mockFs.existsSync.mockImplementation((filePath: fs.PathLike) => {
       // existsSyncCallCount++
-      const pathStr = filePath.toString()
+      const pathString = filePath.toString()
       // Repository metadata and manifest don't exist initially
-      if (pathStr.includes('.metadata.json') || pathStr.includes('vpm.json'))
+      if (
+        pathString.includes('.metadata.json') ||
+        pathString.includes('vpm.json')
+      )
         return false
       // ZIP/unitypackage files exist
-      if (pathStr.includes('.zip') || pathStr.includes('.unitypackage'))
+      if (pathString.includes('.zip') || pathString.includes('.unitypackage'))
         return true
       // Version directories don't exist initially
-      if (pathStr.includes('/packages/')) return false
+      if (pathString.includes('/packages/')) return false
       return false
     })
 
@@ -118,13 +121,9 @@ describe('VpmConverter', () => {
     mockFs.createWriteStream.mockReturnValue({
       on: jest.fn((event: string, handler: () => void) => {
         if (event === 'close') {
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          queueMicrotask(() => {
+            handler()
+          })
         }
         return mockFs.createWriteStream('test')
       }),
@@ -139,7 +138,7 @@ describe('VpmConverter', () => {
       options: any,
       callback?: any
     ) => {
-      const cb =
+      const callback_ =
         typeof options === 'function'
           ? options
           : (callback ?? (() => undefined))
@@ -149,12 +148,12 @@ describe('VpmConverter', () => {
           openReadStream: jest.fn(
             (
               _entry: yauzl.Entry,
-              cb: (
-                err: Error | null,
+              callback__: (
+                error: Error | null,
                 stream: NodeJS.ReadableStream | null
               ) => void
             ) => {
-              cb(null, {
+              callback__(null, {
                 pipe: jest.fn(),
                 on: jest.fn(),
               } as unknown as NodeJS.ReadableStream)
@@ -162,19 +161,15 @@ describe('VpmConverter', () => {
           ),
           on: jest.fn((event: string, handler: () => void) => {
             if (event === 'end') {
-              Promise.resolve()
-                .then(() => {
-                  handler()
-                })
-                .catch(() => {
-                  // ignore error
-                })
+              queueMicrotask(() => {
+                handler()
+              })
             }
           }),
           close: jest.fn(),
         } as unknown as yauzl.ZipFile
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        cb(null, mockZipfile)
+        callback_(null, mockZipfile)
       }
     }) as any)
 
@@ -334,18 +329,21 @@ describe('VpmConverter', () => {
       // Mock that extraction directory doesn't exist, so ZIP extraction will proceed
       mockFs.existsSync.mockReset()
       mockFs.existsSync.mockImplementation((filePath: fs.PathLike) => {
-        const pathStr = filePath.toString()
-        if (pathStr.includes('.metadata.json') || pathStr.includes('vpm.json'))
+        const pathString = filePath.toString()
+        if (
+          pathString.includes('.metadata.json') ||
+          pathString.includes('vpm.json')
+        )
           return false
-        if (pathStr.includes('test.zip')) return true
-        if (pathStr.includes('extracted_')) return false // Force extraction
-        if (pathStr.includes('/packages/')) return false
+        if (pathString.includes('test.zip')) return true
+        if (pathString.includes('extracted_')) return false // Force extraction
+        if (pathString.includes('/packages/')) return false
         return false
       })
 
       // Mock file paths
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/test.zip') // getItemPath
 
       mockFs.existsSync
@@ -366,13 +364,13 @@ describe('VpmConverter', () => {
         options: any,
         callback?: any
       ) => {
-        const cb =
+        const callback_ =
           typeof options === 'function'
             ? options
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          cb(null, mockZipfile)
+          callback_(null, mockZipfile)
         }
       }) as any)
 
@@ -391,30 +389,25 @@ describe('VpmConverter', () => {
       ]
 
       let entryIndex = 0
-      mockZipfile.on.mockImplementation((...args: unknown[]) => {
-        const [event, handler] = args as [string, (entry?: unknown) => void]
+      mockZipfile.on.mockImplementation((...arguments_: unknown[]) => {
+        const [event, handler] = arguments_ as [
+          string,
+          (entry?: unknown) => void,
+        ]
         if (event === 'entry' && entryIndex < entries.length) {
           // Simulate entry events
-          Promise.resolve()
-            .then(() => {
-              handler(entries[entryIndex])
-              entryIndex++
-              if (entryIndex < entries.length) {
-                mockZipfile.readEntry()
-              }
-            })
-            .catch(() => {
-              // ignore error
-            })
+          queueMicrotask(() => {
+            handler(entries[entryIndex])
+            entryIndex++
+            if (entryIndex < entries.length) {
+              mockZipfile.readEntry()
+            }
+          })
         } else if (event === 'end') {
           // Simulate end event
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          queueMicrotask(() => {
+            handler()
+          })
         }
       })
 
@@ -422,31 +415,33 @@ describe('VpmConverter', () => {
         // Trigger next entry
       })
 
-      mockZipfile.openReadStream.mockImplementation((...args: unknown[]) => {
-        const [, callback] = args as [
-          yauzl.Entry,
-          (err: Error | null, stream: NodeJS.ReadableStream | null) => void,
-        ]
-        const mockStream = {
-          pipe: jest.fn().mockReturnThis(),
-          on: jest.fn(),
+      mockZipfile.openReadStream.mockImplementation(
+        (...arguments_: unknown[]) => {
+          const [, callback] = arguments_ as [
+            yauzl.Entry,
+            (error: Error | null, stream: NodeJS.ReadableStream | null) => void,
+          ]
+          const mockStream = {
+            pipe: jest.fn().mockReturnThis(),
+            on: jest.fn(),
+          }
+          callback(null, mockStream as unknown as NodeJS.ReadableStream)
         }
-        callback(null, mockStream as unknown as NodeJS.ReadableStream)
-      })
+      )
 
       // Mock iconv decode
       mockIconvDecode.mockImplementation(
         (buffer: Buffer | Uint8Array, encoding: string): string => {
+          if (encoding === 'utf8') {
+            return 'テスト.unitypackage'
+          }
+          if (encoding === 'sjis') {
+            return '日本語ファイル.unitypackage'
+          }
           const bufferInstance = Buffer.isBuffer(buffer)
             ? buffer
             : Buffer.from(buffer)
-          const str = bufferInstance.toString('binary')
-          if (encoding === 'utf8') {
-            return 'テスト.unitypackage'
-          } else if (encoding === 'sjis') {
-            return '日本語ファイル.unitypackage'
-          }
-          return str
+          return bufferInstance.toString('binary')
         }
       )
 
@@ -454,13 +449,9 @@ describe('VpmConverter', () => {
       const mockWriteStream = {
         on: jest.fn((event: string, handler: () => void) => {
           if (event === 'close') {
-            Promise.resolve()
-              .then(() => {
-                handler()
-              })
-              .catch(() => {
-                // ignore error
-              })
+            queueMicrotask(() => {
+              handler()
+            })
           }
           return mockWriteStream
         }),
@@ -471,9 +462,9 @@ describe('VpmConverter', () => {
 
       // Mock finding unity packages after extraction
       ;(mockFs.readdirSync as jest.Mock).mockImplementation(
-        (dirPath: unknown) => {
-          const pathStr = String(dirPath)
-          if (pathStr.includes('extracted_')) {
+        (directoryPath: unknown) => {
+          const pathString = String(directoryPath)
+          if (pathString.includes('extracted_')) {
             return ['テスト.unitypackage', '日本語ファイル.unitypackage']
           }
           return []
@@ -507,7 +498,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/corrupted.zip') // getItemPath
 
       mockFs.existsSync
@@ -516,18 +507,21 @@ describe('VpmConverter', () => {
         .mockReturnValueOnce(false) // extracted directory doesn't exist
 
       // Mock yauzl.open to fail
-      mockYauzl.open.mockImplementation((...args: unknown[]) => {
-        const [, options, callback] = args as [
+      mockYauzl.open.mockImplementation((...arguments_: unknown[]) => {
+        const [, options, callback] = arguments_ as [
           string,
-          yauzl.Options | ((err: Error | null, zipfile: yauzl.ZipFile) => void),
-          ((err: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
+          (
+            | yauzl.Options
+            | ((error: Error | null, zipfile: yauzl.ZipFile) => void)
+          ),
+          ((error: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
         ]
-        const cb: (err: Error | null, zipfile: yauzl.ZipFile) => void =
+        const callback_: (error: Error | null, zipfile: yauzl.ZipFile) => void =
           typeof options === 'function'
             ? options
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
-          cb(new Error('Invalid ZIP file'), {} as yauzl.ZipFile)
+          callback_(new Error('Invalid ZIP file'), {} as yauzl.ZipFile)
         }
       })
 
@@ -568,7 +562,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/mixed-encoding.zip') // getItemPath
 
       mockFs.existsSync
@@ -589,13 +583,13 @@ describe('VpmConverter', () => {
         options: any,
         callback?: any
       ) => {
-        const cb =
+        const callback_ =
           typeof options === 'function'
             ? options
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          cb(null, mockZipfile)
+          callback_(null, mockZipfile)
         }
       }) as any)
 
@@ -622,18 +616,17 @@ describe('VpmConverter', () => {
       )
 
       // Simulate directory entry
-      mockZipfile.on.mockImplementation((...args: unknown[]) => {
-        const [event, handler] = args as [string, (entry?: unknown) => void]
+      mockZipfile.on.mockImplementation((...arguments_: unknown[]) => {
+        const [event, handler] = arguments_ as [
+          string,
+          (entry?: unknown) => void,
+        ]
         if (event === 'entry') {
           handler({ fileName: 'test/' })
         } else if (event === 'end') {
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          queueMicrotask(() => {
+            handler()
+          })
         }
       })
 
@@ -671,7 +664,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/texture-material.zip') // getItemPath
 
       mockFs.existsSync
@@ -716,7 +709,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/scripts-only.zip') // getItemPath
 
       mockFs.existsSync
@@ -759,7 +752,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/multi-package.zip') // getItemPath
 
       mockFs.existsSync
@@ -802,7 +795,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/full-package.zip') // getItemPath
 
       mockFs.existsSync
@@ -1017,7 +1010,7 @@ describe('VpmConverter', () => {
       ]
 
       mockEnvironment.getPath
-        .mockReturnValueOnce(mockRepositoryDir) // constructor
+        .mockReturnValueOnce(mockRepoDirectory) // constructor
         .mockReturnValueOnce('/path/to/corrupt.zip') // getItemPath
 
       mockFs.existsSync
@@ -1026,18 +1019,21 @@ describe('VpmConverter', () => {
         .mockReturnValueOnce(false) // extracted directory doesn't exist
 
       // Mock yauzl to fail
-      mockYauzl.open.mockImplementation((...args: unknown[]) => {
-        const [, options, callback] = args as [
+      mockYauzl.open.mockImplementation((...arguments_: unknown[]) => {
+        const [, options, callback] = arguments_ as [
           string,
-          yauzl.Options | ((err: Error | null, zipfile: yauzl.ZipFile) => void),
-          ((err: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
+          (
+            | yauzl.Options
+            | ((error: Error | null, zipfile: yauzl.ZipFile) => void)
+          ),
+          ((error: Error | null, zipfile: yauzl.ZipFile) => void) | undefined,
         ]
-        const cb: (err: Error | null, zipfile: yauzl.ZipFile) => void =
+        const callback_: (error: Error | null, zipfile: yauzl.ZipFile) => void =
           typeof options === 'function'
             ? options
             : (callback ?? (() => undefined))
         if (callback || typeof options === 'function') {
-          cb(new Error('Corrupted ZIP'), {} as yauzl.ZipFile)
+          callback_(new Error('Corrupted ZIP'), {} as yauzl.ZipFile)
         }
       })
 

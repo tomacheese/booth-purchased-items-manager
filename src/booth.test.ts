@@ -184,8 +184,8 @@ describe('BoothRequest', () => {
   // ログインチェックが成功した場合にtrueを返すかをテスト
   test('should return true if login check is successful', async () => {
     fetchMock.mockResolvedValueOnce(makeFetchResponse(200, ''))
-    const result = await boothRequest.checkLogin()
-    expect(result).toBe(true)
+    const isResult = await boothRequest.checkLogin()
+    expect(isResult).toBe(true)
   })
 
   // ログインチェックが失敗した場合にfalseを返すかをテスト
@@ -194,8 +194,8 @@ describe('BoothRequest', () => {
       // suppress console.error noise in tests
     })
     fetchMock.mockResolvedValueOnce(makeFetchResponse(401, ''))
-    const result = await boothRequest.checkLogin()
-    expect(result).toBe(false)
+    const isResult = await boothRequest.checkLogin()
+    expect(isResult).toBe(false)
   })
 
   // クッキー文字列が正しく生成されるかをテスト
@@ -366,10 +366,9 @@ describe('BoothParser', () => {
     const realProductPath = 'data/cache/product/'
     if (originalExistsSync(realProductPath)) {
       const files = fs.readdirSync(realProductPath)
+      const targetFiles = files.filter((f) => f.endsWith('.html')).slice(0, 1)
       if (files.length > 0) {
-        for (const file of files
-          .filter((f) => f.endsWith('.html'))
-          .slice(0, 1)) {
+        for (const file of targetFiles) {
           const htmlContent = originalReadFileSync(
             `${realProductPath}${file}`,
             'utf8'
