@@ -46,6 +46,28 @@ function wasMkdirSyncNotCalledWithPath(
   )
 }
 
+// Mock @book000/node-utils
+// __mocks__/@book000/node-utilities.ts は unicorn/name-replacements 対応でリネームされたため、
+// Jest のスコープ付きパッケージ自動モック規約（モックファイルパスと import パスの完全一致）から外れ、
+// このテストファイルには自動適用されなくなった。main.test.ts と同じ内容を明示的にモックする。
+jest.mock('@book000/node-utils', () => {
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  }
+
+  return {
+    Logger: {
+      configure: jest.fn().mockReturnValue(mockLogger),
+    },
+    Discord: {
+      sendMessage: jest.fn(),
+    },
+  }
+})
+
 // Mock environment
 jest.mock('./environment')
 const mockEnvironment = Environment as jest.Mocked<typeof Environment>
