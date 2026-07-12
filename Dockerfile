@@ -30,6 +30,7 @@ RUN apk upgrade --no-cache --available && \
 WORKDIR /app
 
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY patches patches
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 

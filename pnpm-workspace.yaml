@@ -3,3 +3,5 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@book000/*'
+patchedDependencies:
+  node-html-parser@9.0.0: patches/node-html-parser@9.0.0.patch
