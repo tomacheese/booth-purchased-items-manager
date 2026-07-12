@@ -95,8 +95,7 @@ export class Environment {
     key: T
   ): Environment['env'][T]['value'] {
     const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    if (!Object.hasOwn(env.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
     return env.env[key].value
@@ -110,8 +109,7 @@ export class Environment {
    */
   public static getBoolean(key: keyof Environment['env']): boolean {
     const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    if (!Object.hasOwn(env.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
     const value = env.env[key].value
@@ -121,7 +119,8 @@ export class Environment {
     }
     if (value === 'true') {
       return true
-    } else if (value === 'false') {
+    }
+    if (value === 'false') {
       return false
     }
     throw new Error(`Environment variable ${key} is not a boolean`)
@@ -141,18 +140,17 @@ export class Environment {
       : never
   ): string {
     const env = new Environment()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!env.env[key]) {
+    if (!Object.hasOwn(env.env, key)) {
       throw new Error(`Environment variable ${key} is not set`)
     }
     let path = env.env[key].value
     const type = env.env[key].type
     const isFile = type === 'file'
-    const isDirectory = type === 'directory'
 
     if (isFile && filename) {
       throw new Error(`Filename is not allowed for ${key}, it is a file path`)
     }
+    const isDirectory = type === 'directory'
     if (!isFile && !isDirectory) {
       throw new Error(`Should be a file or directory path for ${key}`)
     }

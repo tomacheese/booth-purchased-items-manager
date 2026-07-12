@@ -619,10 +619,9 @@ export class VpmConverter {
     originalItemName?: string
   ): string {
     // まず元のアイテム名からバージョンを抽出を試行
-    let extractedVersion: string | null = null
-    if (originalItemName) {
-      extractedVersion = this.extractVersionFromFilename(originalItemName)
-    }
+    let extractedVersion: string | null = originalItemName
+      ? this.extractVersionFromFilename(originalItemName)
+      : null
 
     // 元のアイテム名からバージョンが抽出できない場合は、パッケージパスから抽出
     extractedVersion ??= this.extractVersionFromFilename(packagePath)
@@ -630,8 +629,11 @@ export class VpmConverter {
     if (extractedVersion) {
       // 抽出したバージョンが既存のものと重複しないかチェック
       const existingPackage = existingRepository.packages[packageName]
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (!existingPackage?.versions[extractedVersion]) {
+      if (
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        !existingPackage ||
+        !Object.hasOwn(existingPackage.versions, extractedVersion)
+      ) {
         return extractedVersion
       }
     }
@@ -642,8 +644,11 @@ export class VpmConverter {
 
     // 日付ベースのバージョンが重複しないかチェック
     const existingPackageForDate = existingRepository.packages[packageName]
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!existingPackageForDate?.versions[dateVersion]) {
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      !existingPackageForDate ||
+      !Object.hasOwn(existingPackageForDate.versions, dateVersion)
+    ) {
       return dateVersion
     }
 
@@ -652,8 +657,7 @@ export class VpmConverter {
     let counter = 1
     let versionWithSuffix = `${dateVersion}-${counter}`
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    while (existingPackageForDate.versions[versionWithSuffix]) {
+    while (Object.hasOwn(existingPackageForDate.versions, versionWithSuffix)) {
       counter++
       versionWithSuffix = `${dateVersion}-${counter}`
     }
@@ -998,9 +1002,10 @@ export class VpmConverter {
   private getRelativeAssetPath(assetPath: string): string {
     // Assets/ プレフィックスを除去
     let relativePath = assetPath
-    if (relativePath.startsWith('Assets/')) {
-      relativePath = relativePath.slice(7)
-    } else if (relativePath.startsWith('Assets\\')) {
+    if (
+      relativePath.startsWith('Assets/') ||
+      relativePath.startsWith('Assets\\')
+    ) {
       relativePath = relativePath.slice(7)
     }
 
@@ -1143,17 +1148,16 @@ export class VpmConverter {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
       return `${cleanBaseUrl}/packages/${packageName}/${version}/${packageFileName}`
-    } else {
-      // ローカルファイルの場合（従来通り）
-      const zipPath = path.join(
-        this.repositoryDir,
-        'packages',
-        packageName,
-        version,
-        packageFileName
-      )
-      return `file://${zipPath}`
     }
+    // ローカルファイルの場合（従来通り）
+    const zipPath = path.join(
+      this.repositoryDir,
+      'packages',
+      packageName,
+      version,
+      packageFileName
+    )
+    return `file://${zipPath}`
   }
 
   /**
@@ -1166,11 +1170,10 @@ export class VpmConverter {
       // HTTPサーバーでホストする場合
       const cleanBaseUrl = baseUrl.replace(/\/$/, '') // 末尾のスラッシュを除去
       return `${cleanBaseUrl}/vpm.json`
-    } else {
-      // ローカルファイルの場合（従来通り）
-      const manifestPath = path.join(this.repositoryDir, 'vpm.json')
-      return `file://${manifestPath}`
     }
+    // ローカルファイルの場合（従来通り）
+    const manifestPath = path.join(this.repositoryDir, 'vpm.json')
+    return `file://${manifestPath}`
   }
 
   /**

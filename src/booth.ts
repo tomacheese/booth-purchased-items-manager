@@ -27,10 +27,12 @@ export class BoothRequest {
    * BoothRequestのインスタンスを生成し、クッキーが存在すれば読み込む
    */
   constructor() {
-    if (fs.existsSync(this.cookiesPath)) {
-      const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf8'))
-      this.cookies = cookies
+    if (!fs.existsSync(this.cookiesPath)) {
+      return
     }
+
+    const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf8'))
+    this.cookies = cookies
   }
 
   /**
@@ -226,23 +228,26 @@ export class BoothParser {
     const products = []
     const root = parseHtml(html)
     const productElements = root.querySelectorAll(
-      'main > div.w-full > div.mb-16'
+      ':scope main > div.w-full > div.mb-16'
     )
 
     for (const product of productElements) {
       const productName =
-        product.querySelector('a.no-underline > div')?.textContent.trim() ??
-        null
+        product
+          .querySelector(':scope a.no-underline > div')
+          ?.textContent.trim() ?? null
       const productURL =
         product.querySelector('a.no-underline')?.getAttribute('href') ?? null
       const thumbnailURL =
-        product.querySelector('a > img')?.getAttribute('src') ?? null
+        product.querySelector(':scope a > img')?.getAttribute('src') ?? null
       const shopName =
-        product.querySelector('a.no-underline + a > div')?.textContent.trim() ??
-        null
+        product
+          .querySelector(':scope a.no-underline + a > div')
+          ?.textContent.trim() ?? null
       const shopURL =
-        product.querySelector('a.no-underline + a')?.getAttribute('href') ??
-        null
+        product
+          .querySelector(':scope a.no-underline + a')
+          ?.getAttribute('href') ?? null
 
       const items = []
       const itemElements = product.querySelectorAll(
@@ -296,7 +301,7 @@ export class BoothParser {
   parseProductPage(html: string) {
     const root = parseHtml(html)
     const descriptionElements = root.querySelectorAll(
-      'section.main-info-column div.description'
+      ':scope section.main-info-column div.description'
     )
     const shopTextElements = root.querySelectorAll('section.shop__text')
     const mergedElements = [...descriptionElements, ...shopTextElements]
