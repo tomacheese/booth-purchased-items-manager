@@ -444,8 +444,8 @@ async function main() {
 
   // 新しい商品・アイテムを一覧化
   const newProducts = products.filter((product) => {
-    return !prevProducts.some(
-      (prevProduct) => prevProduct.productId === product.productId
+    return prevProducts.every(
+      (prevProduct) => prevProduct.productId !== product.productId
     )
   })
   const newItems = products.flatMap((product) => {
@@ -456,8 +456,8 @@ async function main() {
     ) {
       return product.items
         .filter((item) => {
-          return !prevProducts.some((prevProduct) => {
-            return (
+          return prevProducts.every((prevProduct) => {
+            return !(
               prevProduct.productId === product.productId &&
               prevProduct.items.some(
                 (prevItem) => prevItem.itemId === item.itemId

@@ -41,8 +41,8 @@ function wasMkdirSyncNotCalledWithPath(
   pathSubstring: string
 ): boolean {
   const calls = mockMkdirSync.mock.calls
-  return !calls.some(
-    (call) => typeof call[0] === 'string' && call[0].includes(pathSubstring)
+  return calls.every(
+    (call) => !(typeof call[0] === 'string' && call[0].includes(pathSubstring))
   )
 }
 
@@ -118,13 +118,11 @@ describe('VpmConverter', () => {
     mockFs.createWriteStream.mockReturnValue({
       on: jest.fn((event: string, handler: () => void) => {
         if (event === 'close') {
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          Promise.try(() => {
+            handler()
+          }).catch(() => {
+            // ignore error
+          })
         }
         return mockFs.createWriteStream('test')
       }),
@@ -162,13 +160,11 @@ describe('VpmConverter', () => {
           ),
           on: jest.fn((event: string, handler: () => void) => {
             if (event === 'end') {
-              Promise.resolve()
-                .then(() => {
-                  handler()
-                })
-                .catch(() => {
-                  // ignore error
-                })
+              Promise.try(() => {
+                handler()
+              }).catch(() => {
+                // ignore error
+              })
             }
           }),
           close: jest.fn(),
@@ -395,26 +391,22 @@ describe('VpmConverter', () => {
         const [event, handler] = args as [string, (entry?: unknown) => void]
         if (event === 'entry' && entryIndex < entries.length) {
           // Simulate entry events
-          Promise.resolve()
-            .then(() => {
-              handler(entries[entryIndex])
-              entryIndex++
-              if (entryIndex < entries.length) {
-                mockZipfile.readEntry()
-              }
-            })
-            .catch(() => {
-              // ignore error
-            })
+          Promise.try(() => {
+            handler(entries[entryIndex])
+            entryIndex++
+            if (entryIndex < entries.length) {
+              mockZipfile.readEntry()
+            }
+          }).catch(() => {
+            // ignore error
+          })
         } else if (event === 'end') {
           // Simulate end event
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          Promise.try(() => {
+            handler()
+          }).catch(() => {
+            // ignore error
+          })
         }
       })
 
@@ -437,16 +429,16 @@ describe('VpmConverter', () => {
       // Mock iconv decode
       mockIconvDecode.mockImplementation(
         (buffer: Buffer | Uint8Array, encoding: string): string => {
+          if (encoding === 'utf8') {
+            return 'テスト.unitypackage'
+          }
+          if (encoding === 'sjis') {
+            return '日本語ファイル.unitypackage'
+          }
           const bufferInstance = Buffer.isBuffer(buffer)
             ? buffer
             : Buffer.from(buffer)
-          const str = bufferInstance.toString('binary')
-          if (encoding === 'utf8') {
-            return 'テスト.unitypackage'
-          } else if (encoding === 'sjis') {
-            return '日本語ファイル.unitypackage'
-          }
-          return str
+          return bufferInstance.toString('binary')
         }
       )
 
@@ -454,13 +446,11 @@ describe('VpmConverter', () => {
       const mockWriteStream = {
         on: jest.fn((event: string, handler: () => void) => {
           if (event === 'close') {
-            Promise.resolve()
-              .then(() => {
-                handler()
-              })
-              .catch(() => {
-                // ignore error
-              })
+            Promise.try(() => {
+              handler()
+            }).catch(() => {
+              // ignore error
+            })
           }
           return mockWriteStream
         }),
@@ -627,13 +617,11 @@ describe('VpmConverter', () => {
         if (event === 'entry') {
           handler({ fileName: 'test/' })
         } else if (event === 'end') {
-          Promise.resolve()
-            .then(() => {
-              handler()
-            })
-            .catch(() => {
-              // ignore error
-            })
+          Promise.try(() => {
+            handler()
+          }).catch(() => {
+            // ignore error
+          })
         }
       })
 

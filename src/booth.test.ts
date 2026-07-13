@@ -367,9 +367,8 @@ describe('BoothParser', () => {
     if (originalExistsSync(realProductPath)) {
       const files = fs.readdirSync(realProductPath)
       if (files.length > 0) {
-        for (const file of files
-          .filter((f) => f.endsWith('.html'))
-          .slice(0, 1)) {
+        const targetFiles = files.filter((f) => f.endsWith('.html')).slice(0, 1)
+        for (const file of targetFiles) {
           const htmlContent = originalReadFileSync(
             `${realProductPath}${file}`,
             'utf8'
