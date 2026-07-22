@@ -404,15 +404,15 @@ export class VpmConverter {
 
     // 判定ロジック
     if (
-      materialFiles > 0 &&
       codeFiles === 0 &&
+      materialFiles > 0 &&
       fileCount < VpmConverter.MAX_TEXTURE_ONLY_FILES
     ) {
       // マテリアル・テクスチャファイルが多く、コードファイルがない場合
       return 'texture-material'
     }
 
-    if (codeFiles > 0 && materialFiles === 0) {
+    if (materialFiles === 0 && codeFiles > 0) {
       // コードファイルが多く、マテリアルファイルがない場合
       return 'scripts'
     }
