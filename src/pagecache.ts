@@ -55,11 +55,7 @@ export class PageCache {
     const diffDays = Math.floor(
       (now.getTime() - savedAt.getTime()) / (1000 * 3600 * 24)
     )
-    if (diffDays > expireDays) {
-      return -1
-    }
-
-    return 1
+    return diffDays > expireDays ? -1 : 1;
   }
 
   /**

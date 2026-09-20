@@ -118,15 +118,17 @@ export class VpmConverter {
               vpmRepository
             )
 
-            if (vpmPackage) {
-              this.addPackageToRepository(vpmRepository, vpmPackage)
-              // パッケージが追加されるたびに逐次保存
-              this.saveRepository(vpmRepository)
-              hasUpdates = true
-              this.logger.info(
-                `Converted to VPM: ${vpmPackage.name}@${vpmPackage.version}`
-              )
+            if (!vpmPackage) {
+              continue
             }
+
+            this.addPackageToRepository(vpmRepository, vpmPackage)
+            // パッケージが追加されるたびに逐次保存
+            this.saveRepository(vpmRepository)
+            hasUpdates = true
+            this.logger.info(
+              `Converted to VPM: ${vpmPackage.name}@${vpmPackage.version}`
+            )
           }
         } catch (error) {
           this.logger.error(
@@ -422,16 +424,12 @@ export class VpmConverter {
       return 'multi-package'
     }
 
-    if (
-      fileCount > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES ||
-      (materialFiles > 0 && codeFiles > 0)
-    ) {
-      // ファイル数が多いか、マテリアルとコードの両方が含まれている場合はフル版
-      return 'full'
-    }
-
+    // ファイル数が多いか、マテリアルとコードの両方が含まれている場合はフル版
     // デフォルトでは null を返してファイル名ベースの識別子を使用
-    return null
+    return fileCount > VpmConverter.MAX_EARLY_TERMINATION_ENTRIES ||
+      (materialFiles > 0 && codeFiles > 0)
+      ? 'full'
+      : null
   }
 
   /**
@@ -477,11 +475,8 @@ export class VpmConverter {
       if (nameWithoutExt.toLowerCase().includes('material')) {
         return 'materials'
       }
-      if (nameWithoutExt.toLowerCase().includes('texture')) {
-        return 'textures'
-      }
       // 単一ファイルの場合は識別子なしとする
-      return ''
+      return nameWithoutExt.toLowerCase().includes('texture') ? 'textures' : ''
     }
 
     // アンダースコアとドットで分割
@@ -597,16 +592,12 @@ export class VpmConverter {
     if (lowerFilename.includes('manual') || lowerFilename.includes('guide')) {
       return 'manual'
     }
-    if (
-      lowerFilename.includes('sample') ||
+    // デフォルトは 'extra'
+    return lowerFilename.includes('sample') ||
       lowerFilename.includes('demo') ||
       lowerFilename.includes('example')
-    ) {
-      return 'sample'
-    }
-
-    // デフォルトは 'extra'
-    return 'extra'
+      ? 'sample'
+      : 'extra'
   }
 
   /**
@@ -959,19 +950,21 @@ export class VpmConverter {
         const entryPath = path.join(extractedDir, entry)
         const stat = fs.statSync(entryPath)
 
-        if (stat.isDirectory()) {
-          // UnityPackageの各アセットディレクトリを処理
-          const pathnamePath = path.join(entryPath, 'pathname')
-          const assetPath = path.join(entryPath, 'asset')
-
-          if (fs.existsSync(pathnamePath) && fs.existsSync(assetPath)) {
-            const pathname = fs.readFileSync(pathnamePath, 'utf8').trim()
-            assetPaths.push({
-              assetPath: pathname,
-              filePath: assetPath,
-            })
-          }
+        if (!stat.isDirectory()) {
+          continue
         }
+        // UnityPackageの各アセットディレクトリを処理
+        const pathnamePath = path.join(entryPath, 'pathname')
+        const assetPath = path.join(entryPath, 'asset')
+
+        if (!fs.existsSync(pathnamePath) || !fs.existsSync(assetPath)) {
+          continue
+        }
+        const pathname = fs.readFileSync(pathnamePath, 'utf8').trim()
+        assetPaths.push({
+          assetPath: pathname,
+          filePath: assetPath,
+        })
       }
     } catch (error) {
       this.logger.warn(

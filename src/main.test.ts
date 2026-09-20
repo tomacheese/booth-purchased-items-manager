@@ -122,10 +122,7 @@ describe('Main Functions', () => {
 
     mockEnvironment.getPath.mockImplementation(
       (key: string, filename?: string) => {
-        if (filename) {
-          return `${tempDir}/${key}/${filename}`
-        }
-        return `${tempDir}/${key}`
+        return filename ? `${tempDir}/${key}/${filename}` : `${tempDir}/${key}`
       }
     )
 
@@ -192,26 +189,25 @@ describe('Main Functions', () => {
       jest
         .spyOn(boothParser, 'parseLibraryPage')
         .mockImplementation((html: string) => {
-          if (html.includes('Product 1')) {
-            return [
-              {
-                productId: '12345',
-                productName: 'Product 1',
-                productURL: 'https://booth.pm/ja/items/12345',
-                thumbnailURL: 'https://example.com/image1.jpg',
-                shopName: 'Shop 1',
-                shopURL: 'https://example.com/shop1',
-                items: [
-                  {
-                    itemId: '67890',
-                    itemName: 'Item 1',
-                    downloadURL: 'https://booth.pm/downloadables/67890',
-                  },
-                ],
-              },
-            ]
-          }
-          return []
+          return html.includes('Product 1')
+            ? [
+                {
+                  productId: '12345',
+                  productName: 'Product 1',
+                  productURL: 'https://booth.pm/ja/items/12345',
+                  thumbnailURL: 'https://example.com/image1.jpg',
+                  shopName: 'Shop 1',
+                  shopURL: 'https://example.com/shop1',
+                  items: [
+                    {
+                      itemId: '67890',
+                      itemName: 'Item 1',
+                      downloadURL: 'https://booth.pm/downloadables/67890',
+                    },
+                  ],
+                },
+              ]
+            : []
         })
       const result = await fetchPurchased(boothRequest, boothParser, pageCache)
       expect(result).toHaveLength(1)
@@ -317,20 +313,19 @@ describe('Main Functions', () => {
               },
             ]
           }
-          if (html.includes('gift page')) {
-            return [
-              {
-                productId: '222',
-                productName: 'Gift1',
-                productURL: 'url2',
-                thumbnailURL: 'thumb2',
-                shopName: 'shop2',
-                shopURL: 'shopurl2',
-                items: [],
-              },
-            ]
-          }
-          return []
+          return html.includes('gift page')
+            ? [
+                {
+                  productId: '222',
+                  productName: 'Gift1',
+                  productURL: 'url2',
+                  thumbnailURL: 'thumb2',
+                  shopName: 'shop2',
+                  shopURL: 'shopurl2',
+                  items: [],
+                },
+              ]
+            : []
         })
       const result = await fetchPurchased(boothRequest, boothParser, pageCache)
       expect(result).toHaveLength(2)
@@ -644,27 +639,28 @@ describe('Main Functions', () => {
 
     // 実データへのアクセスをテスト
     const realCachePath = 'data/cache/library/1.html'
-    if (fs.existsSync(realCachePath)) {
-      const htmlContent = fs.readFileSync(realCachePath, 'utf8')
-      const realParser = new BoothParser()
-      const products = realParser.parseLibraryPage(htmlContent)
-
-      // パースが正常に動作することを確認
-      expect(Array.isArray(products)).toBe(true)
-
-      // 最低限のプロパティが存在するか確認
-      if (products.length > 0) {
-        expect(products[0]).toHaveProperty('productId')
-        expect(products[0]).toHaveProperty('productName')
-      }
+    if (!fs.existsSync(realCachePath)) {
+      return
     }
+    const htmlContent = fs.readFileSync(realCachePath, 'utf8')
+    const realParser = new BoothParser()
+    const products = realParser.parseLibraryPage(htmlContent)
+
+    // パースが正常に動作することを確認
+    expect(Array.isArray(products)).toBe(true)
+
+    // 最低限のプロパティが存在するか確認
+    if (products.length === 0) {
+      return
+    }
+    expect(products[0]).toHaveProperty('productId')
+    expect(products[0]).toHaveProperty('productName')
   })
 
   describe('fetchFreeItems', () => {
     beforeEach(() => {
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_IDS') return ''
-        return ''
+        return key === 'WISHLIST_IDS' ? '' : ''
       })
     })
 
@@ -846,8 +842,7 @@ describe('Main Functions', () => {
     test('should fetch free items from wishlist', async () => {
       mockFs.existsSync.mockReturnValue(false)
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_IDS') return 'test123'
-        return ''
+        return key === 'WISHLIST_IDS' ? 'test123' : ''
       })
 
       // Mock wishlist JSON response for page 1 with items
@@ -902,10 +897,7 @@ describe('Main Functions', () => {
       jest
         .spyOn(pageCache, 'loadOrFetch')
         .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
-          if (type === 'wishlist') {
-            return fetchFunc()
-          }
-          return mockProductHtml
+          return type === 'wishlist' ? fetchFunc() : mockProductHtml
         })
 
       jest
@@ -953,10 +945,7 @@ describe('Main Functions', () => {
     test('should handle multiple wishlist URLs', async () => {
       mockFs.existsSync.mockReturnValue(false)
       mockEnvironment.getValue.mockImplementation((key: string) => {
-        if (key === 'WISHLIST_IDS') {
-          return 'list1,list2'
-        }
-        return ''
+        return key === 'WISHLIST_IDS' ? 'list1,list2' : ''
       })
 
       // Mock wishlist responses
@@ -996,10 +985,9 @@ describe('Main Functions', () => {
       jest
         .spyOn(pageCache, 'loadOrFetch')
         .mockImplementation(async (type, _id, _expiry, fetchFunc) => {
-          if (type === 'wishlist') {
-            return fetchFunc()
-          }
-          return '<html>Mock Product Page</html>'
+          return type === 'wishlist'
+            ? fetchFunc()
+            : '<html>Mock Product Page</html>'
         })
 
       jest
