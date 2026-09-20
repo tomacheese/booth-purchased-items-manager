@@ -141,26 +141,25 @@ async function fetchWishlistFreeItems(
         1,
         async () => {
           const response = await boothRequest.getProductPage(product.productId)
-          if (response.status !== 200) {
-            return ''
-          }
-          return response.data
+          return response.status === 200 ? response.data : ''
         }
       )
 
-      if (productHtml) {
-        const freeProduct = boothParser.parseFreeItemPage(
-          productHtml,
-          product.productId,
-          product.productURL
-        )
-        if (freeProduct && freeProduct.items.length > 0) {
-          logger.info(
-            `Found free item in wishlist: ${product.productName} [${product.productId}]`
-          )
-          freeItemIds.push(product.productId)
-        }
+      if (!productHtml) {
+        continue
       }
+      const freeProduct = boothParser.parseFreeItemPage(
+        productHtml,
+        product.productId,
+        product.productURL
+      )
+      if (!freeProduct || freeProduct.items.length === 0) {
+        continue
+      }
+      logger.info(
+        `Found free item in wishlist: ${product.productName} [${product.productId}]`
+      )
+      freeItemIds.push(product.productId)
     }
 
     pageNumber++
@@ -292,11 +291,8 @@ export async function extractIdLinking(
       1,
       async () => {
         const response = await boothRequest.getProductPage(productId)
-        if (response.status !== 200) {
-          // throw new Error(`Failed to fetch product page: ${response.status}`)
-          return ''
-        }
-        return response.data
+        // throw new Error(`Failed to fetch product page: ${response.status}`)
+        return response.status === 200 ? response.data : ''
       }
     )
     const descriptions = boothParser.parseProductPage(html)
@@ -449,28 +445,25 @@ async function main() {
     )
   })
   const newItems = products.flatMap((product) => {
-    if (
-      prevProducts.some(
-        (prevProduct) => prevProduct.productId === product.productId
-      )
-    ) {
-      return product.items
-        .filter((item) => {
-          return prevProducts.every((prevProduct) => {
-            return !(
-              prevProduct.productId === product.productId &&
-              prevProduct.items.some(
-                (prevItem) => prevItem.itemId === item.itemId
+    return prevProducts.some(
+      (prevProduct) => prevProduct.productId === product.productId
+    )
+      ? product.items
+          .filter((item) => {
+            return prevProducts.every((prevProduct) => {
+              return !(
+                prevProduct.productId === product.productId &&
+                prevProduct.items.some(
+                  (prevItem) => prevItem.itemId === item.itemId
+                )
               )
-            )
+            })
           })
-        })
-        .map((item) => ({
-          ...item,
-          product,
-        }))
-    }
-    return []
+          .map((item) => ({
+            ...item,
+            product,
+          }))
+      : []
   })
 
   logger.info(
@@ -554,13 +547,10 @@ async function main() {
       }),
     }
 
-    const embeds = []
-    if (newProducts.length > 0) {
-      embeds.push(newProductEmbeds)
-    }
-    if (newItems.length > 0) {
-      embeds.push(newItemEmbeds)
-    }
+    const embeds = [
+      ...(newProducts.length > 0 ? [newProductEmbeds] : []),
+      ...(newItems.length > 0 ? [newItemEmbeds] : []),
+    ]
     if (newProducts.length > 0 || newItems.length > 0) {
       await discord.sendMessage({
         embeds,

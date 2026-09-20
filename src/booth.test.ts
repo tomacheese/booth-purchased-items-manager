@@ -364,19 +364,21 @@ describe('BoothParser', () => {
     }
 
     const realProductPath = 'data/cache/product/'
-    if (originalExistsSync(realProductPath)) {
-      const files = fs.readdirSync(realProductPath)
-      if (files.length > 0) {
-        const targetFiles = files.filter((f) => f.endsWith('.html')).slice(0, 1)
-        for (const file of targetFiles) {
-          const htmlContent = originalReadFileSync(
-            `${realProductPath}${file}`,
-            'utf8'
-          )
-          const result = boothParser.parseProductPage(htmlContent)
-          expect(Array.isArray(result)).toBe(true)
-        }
-      }
+    if (!originalExistsSync(realProductPath)) {
+      return
+    }
+    const files = fs.readdirSync(realProductPath)
+    if (files.length === 0) {
+      return
+    }
+    const targetFiles = files.filter((f) => f.endsWith('.html')).slice(0, 1)
+    for (const file of targetFiles) {
+      const htmlContent = originalReadFileSync(
+        `${realProductPath}${file}`,
+        'utf8'
+      )
+      const result = boothParser.parseProductPage(htmlContent)
+      expect(Array.isArray(result)).toBe(true)
     }
   })
 

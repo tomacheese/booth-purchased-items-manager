@@ -268,13 +268,15 @@ describe('generateLinkedList', () => {
     // Product 2 should have outgoing link to Product 1 and incoming link from Product 1
     expect(generatedMarkdown).toContain('## Product 2 (222)')
     const product2Section = generatedMarkdown.split('## Product 2', 2)[1]
-    if (product2Section) {
-      expect(product2Section).toContain('### リンク先')
-      expect(product2Section).toContain('### 被リンク')
-      expect(product2Section).toContain(
-        '- [Product 1](https://booth.pm/ja/items/111)'
-      )
+    if (!product2Section) {
+      return
     }
+
+    expect(product2Section).toContain('### リンク先')
+    expect(product2Section).toContain('### 被リンク')
+    expect(product2Section).toContain(
+      '- [Product 1](https://booth.pm/ja/items/111)'
+    )
   })
 
   test('should properly escape HTML in product names and shop names', () => {

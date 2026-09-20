@@ -93,10 +93,12 @@ export class BoothRequest {
         // 元のページに戻るまで待つ
         const interval = setInterval(() => {
           const currentUrl = page.url()
-          if (currentUrl === url) {
-            clearInterval(interval)
-            resolve(true)
+          if (currentUrl !== url) {
+            return
           }
+
+          clearInterval(interval)
+          resolve(true)
         }, 1000)
       })
     }

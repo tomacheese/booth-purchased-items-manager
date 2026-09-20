@@ -79,9 +79,9 @@ describe('VpmConverter', () => {
     mockEnvironment.getPath.mockImplementation(
       (key: string, filename?: string) => {
         if (key === 'VPM_REPOSITORY_DIR') return mockRepositoryDir
-        if (key === 'DOWNLOADED_ITEMS_DIR' && filename)
-          return `/path/to/${filename}`
-        return '/path/to/item.unitypackage'
+        return key === 'DOWNLOADED_ITEMS_DIR' && filename
+          ? `/path/to/${filename}`
+          : '/path/to/item.unitypackage'
       }
     )
     mockEnvironment.getBoolean.mockReturnValue(true)
@@ -137,41 +137,42 @@ describe('VpmConverter', () => {
       options: any,
       callback?: any
     ) => {
+      if (!callback && typeof options !== 'function') {
+        return
+      }
       const cb =
         typeof options === 'function'
           ? options
           : (callback ?? (() => undefined))
-      if (callback || typeof options === 'function') {
-        const mockZipfile = {
-          readEntry: jest.fn(),
-          openReadStream: jest.fn(
-            (
-              _entry: yauzl.Entry,
-              cb: (
-                err: Error | null,
-                stream: NodeJS.ReadableStream | null
-              ) => void
-            ) => {
-              cb(null, {
-                pipe: jest.fn(),
-                on: jest.fn(),
-              } as unknown as NodeJS.ReadableStream)
-            }
-          ),
-          on: jest.fn((event: string, handler: () => void) => {
-            if (event === 'end') {
-              Promise.try(() => {
-                handler()
-              }).catch(() => {
-                // ignore error
-              })
-            }
-          }),
-          close: jest.fn(),
-        } as unknown as yauzl.ZipFile
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        cb(null, mockZipfile)
-      }
+      const mockZipfile = {
+        readEntry: jest.fn(),
+        openReadStream: jest.fn(
+          (
+            _entry: yauzl.Entry,
+            cb: (
+              err: Error | null,
+              stream: NodeJS.ReadableStream | null
+            ) => void
+          ) => {
+            cb(null, {
+              pipe: jest.fn(),
+              on: jest.fn(),
+            } as unknown as NodeJS.ReadableStream)
+          }
+        ),
+        on: jest.fn((event: string, handler: () => void) => {
+          if (event === 'end') {
+            Promise.try(() => {
+              handler()
+            }).catch(() => {
+              // ignore error
+            })
+          }
+        }),
+        close: jest.fn(),
+      } as unknown as yauzl.ZipFile
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      cb(null, mockZipfile)
     }) as any)
 
     vpmConverter = new VpmConverter()
@@ -463,10 +464,9 @@ describe('VpmConverter', () => {
       ;(mockFs.readdirSync as jest.Mock).mockImplementation(
         (dirPath: unknown) => {
           const pathStr = String(dirPath)
-          if (pathStr.includes('extracted_')) {
-            return ['テスト.unitypackage', '日本語ファイル.unitypackage']
-          }
-          return []
+          return pathStr.includes('extracted_')
+            ? ['テスト.unitypackage', '日本語ファイル.unitypackage']
+            : []
         }
       )
 
