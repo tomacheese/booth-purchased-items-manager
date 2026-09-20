@@ -94,7 +94,7 @@ export class BoothRequest {
         const interval = setInterval(() => {
           const currentUrl = page.url()
           if (currentUrl !== url) {
-          	return;
+            return
           }
 
           clearInterval(interval)

@@ -269,7 +269,7 @@ describe('generateLinkedList', () => {
     expect(generatedMarkdown).toContain('## Product 2 (222)')
     const product2Section = generatedMarkdown.split('## Product 2', 2)[1]
     if (!product2Section) {
-    	return;
+      return
     }
 
     expect(product2Section).toContain('### リンク先')
