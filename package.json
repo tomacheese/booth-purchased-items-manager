@@ -24,7 +24,7 @@
     "prettier": "3.9.9",
     "puppeteer-core": "25.11.0",
     "run-z": "2.1.0",
-    "ts-jest": "29.4.12",
+    "ts-jest": "29.4.13",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-json-schema": "0.68.0"
